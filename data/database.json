@@ -1,0 +1,265 @@
+{
+  "schools": [
+    {
+      "id": "sch-sma1",
+      "name": "SMA Negeri 1 Jakarta",
+      "address": "Jl. Budi Utomo No.7, Jakarta Pusat",
+      "subscriptionPlan": "tahunan",
+      "subscriptionStatus": "aktif",
+      "createdAt": "2026-07-03T04:49:49.676Z"
+    },
+    {
+      "id": "sch-43mj9ks0l",
+      "name": "TES",
+      "address": "TES",
+      "subscriptionPlan": "tahunan",
+      "subscriptionStatus": "aktif",
+      "createdAt": "2026-07-03T04:57:16.720Z"
+    }
+  ],
+  "users": [
+    {
+      "id": "usr-super",
+      "schoolId": null,
+      "username": "superadmin",
+      "name": "Budi Santoso (Super Admin)",
+      "role": "super_admin",
+      "passwordHash": "$2b$10$BOitsmF.g5FWqemgQaRQl.rymSoGLtuu7RFBCRCBRGDXlxw5FQtry",
+      "createdAt": "2026-07-03T04:49:49.676Z"
+    },
+    {
+      "id": "usr-admin1",
+      "schoolId": "sch-sma1",
+      "username": "adminsma1",
+      "name": "Siti Rahma (Admin Sekolah)",
+      "role": "admin",
+      "passwordHash": "$2b$10$BOitsmF.g5FWqemgQaRQl.rymSoGLtuu7RFBCRCBRGDXlxw5FQtry",
+      "createdAt": "2026-07-03T04:49:49.676Z"
+    },
+    {
+      "id": "usr-teacher1",
+      "schoolId": "sch-sma1",
+      "username": "gurusma1",
+      "name": "Eko Prasetyo, S.Pd. (Guru Kelas)",
+      "role": "teacher",
+      "passwordHash": "$2b$10$BOitsmF.g5FWqemgQaRQl.rymSoGLtuu7RFBCRCBRGDXlxw5FQtry",
+      "createdAt": "2026-07-03T04:49:49.676Z"
+    },
+    {
+      "id": "usr-nmzdcd4o3",
+      "schoolId": "sch-43mj9ks0l",
+      "username": "tes",
+      "name": "Jarjit",
+      "role": "admin",
+      "passwordHash": "$2b$10$mGE.4IbAdtBA9D657mYVvuSvSkthjDUShjRPycERjdj4738hzpLDq",
+      "createdAt": "2026-07-03T04:57:16.823Z"
+    },
+    {
+      "id": "usr-jxfvv6hbe",
+      "schoolId": "sch-43mj9ks0l",
+      "username": "alen",
+      "name": "alen",
+      "role": "teacher",
+      "passwordHash": "$2b$10$kQYmrITnOLabUzx8PCHZnOv/NNssh4eeCQSeIq.30dWU8aij7XTDi",
+      "createdAt": "2026-07-03T05:54:23.738Z"
+    }
+  ],
+  "classes": [
+    {
+      "id": "cls-10a",
+      "schoolId": "sch-sma1",
+      "name": "Kelas X-A",
+      "createdAt": "2026-07-03T04:49:49.676Z"
+    },
+    {
+      "id": "cls-11a",
+      "schoolId": "sch-sma1",
+      "name": "Kelas XI-A",
+      "createdAt": "2026-07-03T04:49:49.676Z"
+    },
+    {
+      "id": "cls-12a",
+      "schoolId": "sch-sma1",
+      "name": "Kelas XII-A",
+      "createdAt": "2026-07-03T04:49:49.676Z"
+    },
+    {
+      "id": "cls-zbrqyem1a",
+      "schoolId": "sch-43mj9ks0l",
+      "name": "10 IPA",
+      "createdAt": "2026-07-03T05:54:59.511Z"
+    }
+  ],
+  "students": [
+    {
+      "id": "std-1",
+      "schoolId": "sch-sma1",
+      "classId": "cls-10a",
+      "name": "Aditya Pratama",
+      "nisn": "0012345678",
+      "qrCode": "QR-0012345678-ADITYA",
+      "createdAt": "2026-07-03T04:49:49.676Z"
+    },
+    {
+      "id": "std-2",
+      "schoolId": "sch-sma1",
+      "classId": "cls-10a",
+      "name": "Anisa Lestari",
+      "nisn": "0012345679",
+      "qrCode": "QR-0012345679-ANISA",
+      "createdAt": "2026-07-03T04:49:49.676Z"
+    },
+    {
+      "id": "std-3",
+      "schoolId": "sch-sma1",
+      "classId": "cls-11a",
+      "name": "Bagas Wibowo",
+      "nisn": "0012345680",
+      "qrCode": "QR-0012345680-BAGAS",
+      "createdAt": "2026-07-03T04:49:49.676Z"
+    },
+    {
+      "id": "std-4",
+      "schoolId": "sch-sma1",
+      "classId": "cls-11a",
+      "name": "Citra Kirana",
+      "nisn": "0012345681",
+      "qrCode": "QR-0012345681-CITRA",
+      "createdAt": "2026-07-03T04:49:49.676Z"
+    },
+    {
+      "id": "std-5",
+      "schoolId": "sch-sma1",
+      "classId": "cls-12a",
+      "name": "Dimas Saputra",
+      "nisn": "0012345682",
+      "qrCode": "QR-0012345682-DIMAS",
+      "createdAt": "2026-07-03T04:49:49.676Z"
+    }
+  ],
+  "attendances": [
+    {
+      "id": "att-1",
+      "schoolId": "sch-sma1",
+      "studentId": "std-1",
+      "classId": "cls-10a",
+      "date": "2026-07-02",
+      "time": "07:15:30",
+      "status": "hadir",
+      "method": "qr",
+      "scannedByUserId": "usr-teacher1",
+      "createdAt": "2026-07-02T07:15:30.000Z"
+    },
+    {
+      "id": "att-2",
+      "schoolId": "sch-sma1",
+      "studentId": "std-2",
+      "classId": "cls-10a",
+      "date": "2026-07-02",
+      "time": "07:22:15",
+      "status": "hadir",
+      "method": "qr",
+      "scannedByUserId": "usr-teacher1",
+      "createdAt": "2026-07-02T07:22:15.000Z"
+    },
+    {
+      "id": "att-3",
+      "schoolId": "sch-sma1",
+      "studentId": "std-3",
+      "classId": "cls-11a",
+      "date": "2026-07-02",
+      "time": "07:10:00",
+      "status": "hadir",
+      "method": "qr",
+      "scannedByUserId": "usr-teacher1",
+      "createdAt": "2026-07-02T07:10:00.000Z"
+    },
+    {
+      "id": "att-4",
+      "schoolId": "sch-sma1",
+      "studentId": "std-4",
+      "classId": "cls-11a",
+      "date": "2026-07-02",
+      "time": "08:00:00",
+      "status": "izin",
+      "method": "manual",
+      "scannedByUserId": "usr-teacher1",
+      "createdAt": "2026-07-02T08:00:00.000Z"
+    },
+    {
+      "id": "att-5",
+      "schoolId": "sch-sma1",
+      "studentId": "std-1",
+      "classId": "cls-10a",
+      "date": "2026-07-03",
+      "time": "07:12:44",
+      "status": "hadir",
+      "method": "qr",
+      "scannedByUserId": "usr-teacher1",
+      "createdAt": "2026-07-03T04:49:49.676Z"
+    }
+  ],
+  "subjects": [
+    {
+      "id": "sub-mat-10a",
+      "schoolId": "sch-sma1",
+      "code": "MAT-10A",
+      "name": "Matematika",
+      "teacherName": "Eko Prasetyo, S.Pd.",
+      "classId": "cls-10a",
+      "isActive": true,
+      "createdAt": "2026-07-03T04:49:49.676Z"
+    },
+    {
+      "id": "sub-ipa-10a",
+      "schoolId": "sch-sma1",
+      "code": "IPA-10A",
+      "name": "Fisika",
+      "teacherName": "Eko Prasetyo, S.Pd.",
+      "classId": "cls-10a",
+      "isActive": true,
+      "createdAt": "2026-07-03T04:49:49.676Z"
+    }
+  ],
+  "academicYears": [
+    {
+      "id": "ay-2026-2027",
+      "schoolId": "sch-sma1",
+      "name": "2026/2027",
+      "isActive": true,
+      "createdAt": "2026-07-03T04:49:49.676Z"
+    }
+  ],
+  "assessmentWeights": [
+    {
+      "id": "wt-nh-sch-sma1",
+      "schoolId": "sch-sma1",
+      "name": "NH (Nilai Harian)",
+      "code": "nh",
+      "weight": 70
+    },
+    {
+      "id": "wt-pas-sch-sma1",
+      "schoolId": "sch-sma1",
+      "name": "PAS",
+      "code": "pas",
+      "weight": 30
+    },
+    {
+      "id": "wt-nh-sch-43mj9ks0l",
+      "schoolId": "sch-43mj9ks0l",
+      "name": "NH (Nilai Harian)",
+      "code": "nh",
+      "weight": 70
+    },
+    {
+      "id": "wt-pas-sch-43mj9ks0l",
+      "schoolId": "sch-43mj9ks0l",
+      "name": "PAS",
+      "code": "pas",
+      "weight": 30
+    }
+  ],
+  "assessments": [],
+  "studentGrades": []
+}

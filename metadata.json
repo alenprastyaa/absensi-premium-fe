@@ -1,0 +1,6 @@
+{
+  "name": "Administrasi Guru Premium",
+  "description": "Platform administrasi guru, tahun ajaran, bobot penilaian, dan rekap nilai modern.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
