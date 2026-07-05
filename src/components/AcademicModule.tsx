@@ -1643,12 +1643,12 @@ export default function AcademicModule({ user, classes, teachers, token }: Acade
               <div className="grid grid-cols-2 gap-8 mt-12 text-xs pt-8">
                 <div className="text-center">
                   <p className="text-slate-500">Mengetahui,</p>
-                  <p className="font-bold text-slate-800 mt-0.5">Kepala Sekolah / Guru Pengampu</p>
+                  <p className="font-bold text-slate-800 mt-0.5">Kepala Sekolah</p>
                   <div className="h-20"></div>
                   <p className="font-bold text-slate-800 border-b border-slate-400 inline-block px-8">
-                    {subjects.find(s => s.id === recapSubjectId)?.teacherName || '__________________________'}
+                    {/* {subjects.find(s => s.id === recapSubjectId)?.teacherName || '__________________________'} */}
                   </p>
-                  <p className="text-[10px] text-slate-500 mt-1">Guru Mata Pelajaran</p>
+                  {/* <p className="text-[10px] text-slate-500 mt-1">Guru Mata Pelajaran</p> */}
                 </div>
                 <div className="text-center">
                   <p className="text-slate-500">Dicetak Oleh,</p>

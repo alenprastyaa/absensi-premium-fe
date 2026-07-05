@@ -38,7 +38,20 @@ import {
   Upload,
   Eye,
   RefreshCw,
-  Award
+  Award,
+  ArrowRight,
+  BadgeCheck,
+  BarChart3,
+  ChevronRight,
+  ClipboardList,
+  Fingerprint,
+  Globe2,
+  LayoutDashboard,
+  MonitorSmartphone,
+  ShieldCheck,
+  Sparkles,
+  TimerReset,
+  FileSpreadsheet
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
@@ -68,7 +81,8 @@ export default function App() {
   const fetch = apiFetch;
   const location = useLocation();
   const navigate = useNavigate();
-  const routeTab = location.pathname.split('/')[1] || 'dashboard';
+  const routeSegment = location.pathname.split('/')[1] || '';
+  const routeTab = routeSegment || 'dashboard';
   const activeTab = useMemo(() => {
     const validTabs = new Set(['dashboard', 'schools', 'teachers', 'attendance', 'classes', 'students', 'scan', 'academic', 'password']);
     return validTabs.has(routeTab) ? routeTab : 'dashboard';
@@ -110,6 +124,9 @@ export default function App() {
   const [filterYear, setFilterYear] = useState<string>(new Date().getFullYear().toString());
   const [recapViewType, setRecapViewType] = useState<'summary' | 'detailed'>('summary');
   const [isIframe, setIsIframe] = useState<boolean>(false);
+  const [adminAttendanceMonth, setAdminAttendanceMonth] = useState<number>(new Date().getMonth());
+  const [adminAttendanceYear, setAdminAttendanceYear] = useState<string>(new Date().getFullYear().toString());
+  const [adminAttendanceClassId, setAdminAttendanceClassId] = useState<string>('all');
 
   useEffect(() => {
     setIsIframe(window.self !== window.top);
@@ -195,9 +212,14 @@ export default function App() {
     }
 
     if (!user) {
-      if (location.pathname !== '/login') {
-        navigate('/login', { replace: true });
+      if (location.pathname !== '/' && location.pathname !== '/login') {
+        navigate('/', { replace: true });
       }
+      return;
+    }
+
+    if (location.pathname === '/') {
+      navigate('/dashboard', { replace: true });
       return;
     }
 
@@ -212,6 +234,16 @@ export default function App() {
       loadContextData();
     }
   }, [user, activeTab]);
+
+  useEffect(() => {
+    if (user?.role !== 'admin') {
+      return;
+    }
+
+    if (adminAttendanceClassId === 'all' && classes.length > 0) {
+      setAdminAttendanceClassId(classes[0].id);
+    }
+  }, [user?.role, classes, adminAttendanceClassId]);
 
   const showToast = (text: string, type: 'success' | 'warning' | 'error' = 'success') => {
     setAlertMessage({ text, type });
@@ -1426,6 +1458,338 @@ export default function App() {
       }
       return true;
     });
+  };
+
+  const pad2 = (value: number) => String(value).padStart(2, '0');
+
+  const getMonthLabel = (year: number, monthIndex: number) =>
+    new Date(year, monthIndex, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+
+  const getMonthDays = (year: number, monthIndex: number) => {
+    const totalDays = new Date(year, monthIndex + 1, 0).getDate();
+    const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+
+    return Array.from({ length: totalDays }, (_, index) => {
+      const day = index + 1;
+      const date = `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`;
+      const weekday = new Date(year, monthIndex, day).getDay();
+
+      return {
+        day,
+        date,
+        weekday,
+        weekdayLabel: dayNames[weekday],
+        isWeekend: weekday === 0 || weekday === 6,
+      };
+    });
+  };
+
+  const getMonthlyAttendanceStatus = (studentId: string, date: string) => {
+    const log = attendances.find((item) => item.studentId === studentId && item.date === date);
+    return log?.status || null;
+  };
+
+  const getMonthlyAttendanceStudents = () => {
+    return students.filter((student) => {
+      const matchClass = adminAttendanceClassId === 'all' || student.classId === adminAttendanceClassId;
+      return matchClass;
+    });
+  };
+
+  const getMonthlyAttendanceRows = () => {
+    const monthIndex = Number(adminAttendanceMonth);
+    const year = Number(adminAttendanceYear);
+    const days = getMonthDays(year, monthIndex);
+    const studentsInScope = getMonthlyAttendanceStudents();
+
+    return studentsInScope.map((student, index) => {
+      const dayStatuses = days.map((day) => getMonthlyAttendanceStatus(student.id, day.date));
+      const hadir = dayStatuses.filter((status) => status === 'hadir').length;
+      const sakit = dayStatuses.filter((status) => status === 'sakit').length;
+      const izin = dayStatuses.filter((status) => status === 'izin').length;
+      const alfa = dayStatuses.filter((status) => status === 'alfa').length;
+
+      return {
+        index: index + 1,
+        student,
+        dayStatuses,
+        hadir,
+        sakit,
+        izin,
+        alfa,
+        total: hadir,
+      };
+    });
+  };
+
+  const handleDownloadMonthlyAttendance = () => {
+    const rows = getMonthlyAttendanceRows();
+    if (rows.length === 0) {
+      showToast('Tidak ada data absensi untuk diunduh.', 'error');
+      return;
+    }
+
+    const monthIndex = Number(adminAttendanceMonth);
+    const year = Number(adminAttendanceYear);
+    const days = getMonthDays(year, monthIndex);
+    const headers = ['No', 'Nama Siswa', 'NISN', 'Kelas', ...days.map((day) => String(day.day)), 'Total'];
+    const csv = [
+      headers.join(','),
+      ...rows.map((row) => {
+        const values = [
+          row.index,
+          `"${row.student.name.replace(/"/g, '""')}"`,
+          row.student.nisn,
+          `"${row.student.className.replace(/"/g, '""')}"`,
+          ...row.dayStatuses.map((status, dayIndex) => {
+            const day = days[dayIndex];
+            if (day.isWeekend) return '-';
+            return status ? status.slice(0, 1).toUpperCase() : '-';
+          }),
+          row.total,
+        ];
+        return values.join(',');
+      }),
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `rekap_absensi_${getMonthLabel(year, monthIndex).replace(/\s+/g, '_').toLowerCase()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const renderAdminMonthlyAttendanceView = () => {
+    const monthIndex = Number(adminAttendanceMonth);
+    const year = Number(adminAttendanceYear);
+    const days = getMonthDays(year, monthIndex);
+    const rows = getMonthlyAttendanceRows();
+    const monthLabel = getMonthLabel(year, monthIndex);
+    const className = adminAttendanceClassId === 'all'
+      ? 'Semua Kelas'
+      : classes.find((item) => item.id === adminAttendanceClassId)?.name || 'Semua Kelas';
+
+    const totals = rows.reduce(
+      (acc, row) => {
+        acc.hadir += row.hadir;
+        acc.sakit += row.sakit;
+        acc.izin += row.izin;
+        acc.alfa += row.alfa;
+        return acc;
+      },
+      { hadir: 0, sakit: 0, izin: 0, alfa: 0 }
+    );
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm space-y-5 no-print">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="text-xl font-extrabold font-display text-slate-800">Absensi Perbulan</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Rekap absensi siswa ditampilkan per tanggal untuk bulan dan kelas yang dipilih.
+              </p>
+            </div>
+
+            <button
+              onClick={handleDownloadMonthlyAttendance}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl transition shadow-sm"
+              id="btn-download-monthly-attendance"
+            >
+              <Download className="w-4 h-4" />
+              Unduh Rekap
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.1fr)_minmax(0,.7fr)_minmax(0,1fr)_auto] gap-4 items-end">
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Bulan</label>
+              <select
+                value={String(adminAttendanceMonth)}
+                onChange={(e) => {
+                  setAdminAttendanceMonth(Number(e.target.value));
+                }}
+                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-base focus:outline-indigo-500"
+                id="admin-attendance-month"
+              >
+                {Array.from({ length: 12 }, (_, index) => {
+                  return (
+                    <option key={index} value={index}>
+                      {getMonthLabel(Number(adminAttendanceYear), index).split(' ')[0]}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Tahun</label>
+              <select
+                value={adminAttendanceYear}
+                onChange={(e) => setAdminAttendanceYear(e.target.value)}
+                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-base focus:outline-indigo-500"
+                id="admin-attendance-year"
+              >
+                {Array.from({ length: 5 }, (_, index) => {
+                  const yearValue = String(new Date().getFullYear() - 2 + index);
+                  return (
+                    <option key={yearValue} value={yearValue}>
+                      {yearValue}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Kelas</label>
+              <select
+                value={adminAttendanceClassId}
+                onChange={(e) => setAdminAttendanceClassId(e.target.value)}
+                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-base focus:outline-indigo-500"
+                id="admin-attendance-class"
+              >
+                <option value="all">Semua Kelas</option>
+                {classes.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="md:justify-self-end text-sm text-slate-500 font-medium">
+              {className}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4 text-sm">
+            {[
+              { code: 'hadir', label: 'Hadir', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+              { code: 'alfa', label: 'Alpa', color: 'bg-rose-100 text-rose-700 border-rose-200' },
+              { code: 'sakit', label: 'Sakit', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+              { code: 'izin', label: 'Izin', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+            ].map((item) => (
+              <div key={item.code} className="flex items-center gap-2">
+                <span className={`inline-flex items-center justify-center w-8 h-8 rounded-md border font-extrabold ${item.color}`}>
+                  {item.label.charAt(0)}
+                </span>
+                <span className="text-slate-700">{item.label}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="text-[10px] font-bold uppercase text-slate-400">Total Siswa</div>
+              <div className="text-2xl font-extrabold text-slate-800 mt-1">{rows.length}</div>
+            </div>
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
+              <div className="text-[10px] font-bold uppercase text-emerald-600">Total Hadir</div>
+              <div className="text-2xl font-extrabold text-emerald-700 mt-1">{totals.hadir}</div>
+            </div>
+            <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-4">
+              <div className="text-[10px] font-bold uppercase text-amber-600">Total Sakit / Izin</div>
+              <div className="text-2xl font-extrabold text-amber-700 mt-1">{totals.sakit + totals.izin}</div>
+            </div>
+            <div className="rounded-xl border border-rose-100 bg-rose-50/60 p-4">
+              <div className="text-[10px] font-bold uppercase text-rose-600">Total Alfa</div>
+              <div className="text-2xl font-extrabold text-rose-700 mt-1">{totals.alfa}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden no-print">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse min-w-max">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                  <th className="sticky left-0 z-20 bg-slate-50 p-4 w-14 text-center text-xs font-bold uppercase">No</th>
+                  <th className="sticky left-14 z-20 bg-slate-50 p-4 min-w-[220px] text-left text-xs font-bold uppercase">Nama Siswa</th>
+                  <th className="p-4 text-center text-sm font-bold text-slate-700" colSpan={days.length}>
+                    {monthLabel}
+                  </th>
+                  <th className="p-4 w-20 text-center text-xs font-bold uppercase">Total</th>
+                </tr>
+                <tr className="bg-white border-b border-slate-200">
+                  <th className="sticky left-0 z-20 bg-white p-3"></th>
+                  <th className="sticky left-14 z-20 bg-white p-3"></th>
+                  {days.map((day) => (
+                    <th
+                      key={day.date}
+                      className={`p-3 w-12 text-center text-sm font-semibold ${day.isWeekend ? 'text-rose-600' : 'text-slate-700'}`}
+                    >
+                      <div className="flex flex-col items-center leading-tight">
+                        <span className="font-bold">{day.day}</span>
+                        <span className="text-xs">{day.weekdayLabel}</span>
+                      </div>
+                    </th>
+                  ))}
+                  <th className="p-3 text-center text-xs font-bold uppercase text-slate-600">H</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={days.length + 3} className="py-10 text-center text-slate-400">
+                      Tidak ada data siswa untuk kelas dan bulan ini.
+                    </td>
+                  </tr>
+                ) : (
+                  rows.map((row) => (
+                    <tr key={row.student.id} className="hover:bg-slate-50/60">
+                      <td className="sticky left-0 z-10 bg-white p-4 text-center text-sm text-slate-500 border-r border-slate-100">
+                        {row.index}
+                      </td>
+                      <td className="sticky left-14 z-10 bg-white p-4 border-r border-slate-100">
+                        <div className="font-medium text-slate-800">{row.student.name}</div>
+                      </td>
+                      {row.dayStatuses.map((status, dayIndex) => {
+                        const day = days[dayIndex];
+                        const cellClass = day.isWeekend
+                          ? 'text-slate-400'
+                          : status === 'hadir'
+                            ? 'text-emerald-600'
+                            : status === 'sakit'
+                              ? 'text-amber-600'
+                              : status === 'izin'
+                                ? 'text-blue-600'
+                                : status === 'alfa'
+                                  ? 'text-rose-600'
+                                  : 'text-slate-300';
+
+                        return (
+                          <td key={`${row.student.id}-${day.date}`} className="p-3 text-center text-sm">
+                            <span className={`inline-flex h-8 w-8 items-center justify-center rounded-md border font-bold ${cellClass}`}>
+                              {day.isWeekend ? '-' : status ? status.charAt(0).toUpperCase() : '-'}
+                            </span>
+                          </td>
+                        );
+                      })}
+                      <td className="p-4 text-center text-base font-extrabold text-slate-800">
+                        {row.total}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 text-sm text-blue-900 no-print">
+          <div className="font-bold mb-1">Keterangan:</div>
+          <p className="text-blue-800">
+            Data absensi ditampilkan per tanggal berdasarkan kelas yang dipilih. Hari libur akhir pekan ditandai dengan tanda -
+            dan total di sisi kanan menghitung jumlah hadir.
+          </p>
+        </div>
+      </div>
+    );
   };
 
 
@@ -3279,6 +3643,379 @@ export default function App() {
     );
   };
 
+  const renderLandingPage = () => {
+    const highlights = [
+      { icon: QrCode, title: 'Scan QR cepat', text: 'Absensi masuk hanya dengan pemindaian kode QR siswa.' },
+      { icon: ClipboardList, title: 'Rekap bulanan', text: 'Pantau kehadiran per tanggal, per kelas, dan per bulan.' },
+      { icon: ShieldCheck, title: 'Multi-role', text: 'Super admin, admin sekolah, dan guru punya akses berbeda.' },
+      { icon: FileSpreadsheet, title: 'Ekspor data', text: 'Unduh laporan untuk arsip, audit, atau pelaporan internal.' },
+    ];
+
+    const modules = [
+      { title: 'Dashboard Sekolah', desc: 'Ringkasan kelas, siswa, guru, dan statistik absensi harian.' },
+      { title: 'Data Guru & Siswa', desc: 'Kelola akun, impor data, reset password, dan QR card siswa.' },
+      { title: 'Absensi QR & Manual', desc: 'Scan cepat atau catat ketidakhadiran secara manual.' },
+      { title: 'Akademik', desc: 'Tahun ajaran, mata pelajaran, bobot penilaian, dan nilai.' },
+    ];
+
+    const workflows = [
+      'Admin menyiapkan sekolah, kelas, guru, dan siswa.',
+      'Guru melakukan scan QR saat siswa datang ke sekolah.',
+      'Absensi manual dipakai untuk sakit, izin, atau alfa.',
+      'Rekap bulanan langsung siap dilihat dan diekspor.',
+    ];
+
+    const audiences = [
+      { title: 'Super Admin', desc: 'Kelola sekolah, subscription, dan reset akses admin sekolah.' },
+      { title: 'Admin Sekolah', desc: 'Pantau guru, data siswa, dan laporan absensi bulanan.' },
+      { title: 'Guru Kelas', desc: 'Scan QR, input manual, dan lihat riwayat absensi hari ini.' },
+    ];
+
+    const faqs = [
+      {
+        q: 'Apakah Absensi Premium mendukung rekap bulanan?',
+        a: 'Ya. Admin bisa memilih bulan, tahun, dan kelas untuk melihat rekap per tanggal secara dinamis.',
+      },
+      {
+        q: 'Apakah siswa punya username dan password sendiri?',
+        a: 'Ya. Sistem membuat username, password awal, dan QR unik untuk setiap siswa.',
+      },
+      {
+        q: 'Bisakah data diekspor?',
+        a: 'Bisa. Laporan bisa diunduh untuk kebutuhan arsip atau distribusi internal.',
+      },
+    ];
+
+    const toneClasses: Record<'emerald' | 'blue' | 'rose', { box: string; label: string; value: string }> = {
+      emerald: {
+        box: 'border-emerald-500/20 bg-emerald-500/10',
+        label: 'text-emerald-300',
+        value: 'text-emerald-100',
+      },
+      blue: {
+        box: 'border-blue-500/20 bg-blue-500/10',
+        label: 'text-blue-300',
+        value: 'text-blue-100',
+      },
+      rose: {
+        box: 'border-rose-500/20 bg-rose-500/10',
+        label: 'text-rose-300',
+        value: 'text-rose-100',
+      },
+    };
+    const heroMetrics: Array<[string, string, 'emerald' | 'blue' | 'rose']> = [
+      ['Hadir', '24', 'emerald'],
+      ['Izin', '3', 'blue'],
+      ['Alfa', '1', 'rose'],
+    ];
+
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-700">
+        <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="flex h-18 items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-md shadow-indigo-600/20">
+                  GP
+                </div>
+                <div>
+                  <div className="text-sm font-extrabold text-slate-900 font-display tracking-tight uppercase">
+                    Absensi Premium
+                  </div>
+                  <div className="text-[11px] font-bold tracking-[0.22em] text-indigo-500 uppercase">
+                    Administrasi Guru
+                  </div>
+                </div>
+              </div>
+
+              <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-500">
+                <a href="#fitur" className="hover:text-slate-900 transition">Fitur</a>
+                <a href="#modul" className="hover:text-slate-900 transition">Modul</a>
+                <a href="#alur" className="hover:text-slate-900 transition">Alur</a>
+                <a href="#faq" className="hover:text-slate-900 transition">FAQ</a>
+              </nav>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => navigate('/login')}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold text-sm hover:bg-slate-50 transition"
+                >
+                  <Key className="w-4 h-4" />
+                  Masuk
+                </button>
+                <button
+                  onClick={() => navigate('/login')}
+                  className="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition shadow-sm"
+                >
+                  Buka Aplikasi
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main>
+          <section className="bg-white border-b border-slate-200">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 lg:py-14">
+              <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] items-center">
+                <div className="space-y-6">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-indigo-100 bg-indigo-50 text-indigo-700 text-xs font-bold">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Absensi sekolah, QR, rekap, dan akademik dalam satu sistem
+                  </div>
+                  <div className="space-y-4">
+                    <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900 font-display">
+                      Absensi Premium
+                    </h1>
+                    <p className="max-w-2xl text-base sm:text-lg text-slate-600 leading-8">
+                      Sistem administrasi sekolah untuk absensi digital, rekap bulanan, data guru dan siswa, serta
+                      pengelolaan akademik yang rapi dan mudah dipakai.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      onClick={() => navigate('/login')}
+                      className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition shadow-sm"
+                    >
+                      Masuk ke Sistem
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                    <a
+                      href="#fitur"
+                      className="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 transition"
+                    >
+                      Lihat Fitur
+                      <ChevronRight className="w-4 h-4" />
+                    </a>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {[
+                      ['QR Scan', 'Cepat dan konsisten'],
+                      ['Manual', 'Untuk sakit/izin/alfa'],
+                      ['Rekap Bulan', 'Dinamis per kelas'],
+                      ['Ekspor', 'CSV dan PDF'],
+                    ].map(([title, desc]) => (
+                      <div key={title} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="text-sm font-bold text-slate-900">{title}</div>
+                        <div className="text-xs text-slate-500 mt-1 leading-5">{desc}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-slate-200 bg-slate-900 p-5 shadow-xl shadow-slate-900/10">
+                  <div className="rounded-2xl border border-slate-700 bg-slate-950 p-5 text-slate-100">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-[0.25em] text-indigo-300">Preview Dashboard</div>
+                        <div className="text-xl font-extrabold font-display mt-1">Absensi Perbulan</div>
+                      </div>
+                      <div className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold">
+                        Juli 2026
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3 mb-4">
+                      {heroMetrics.map(([label, value, tone]) => (
+                        <div key={label} className={`rounded-xl border p-3 ${toneClasses[tone].box}`}>
+                          <div className={`text-[10px] uppercase font-bold ${toneClasses[tone].label}`}>{label}</div>
+                          <div className={`text-2xl font-extrabold mt-1 ${toneClasses[tone].value}`}>{value}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-700 overflow-hidden">
+                      <div className="grid grid-cols-6 bg-slate-900/80 text-[10px] uppercase font-bold text-slate-400">
+                        {['No', 'Nama', '1', '2', '3', 'Total'].map((item) => (
+                          <div key={item} className="px-3 py-2 border-r border-slate-700 last:border-r-0">
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                      {[
+                        ['1', 'Aditya Pratama', 'H', 'H', '-', '24'],
+                        ['2', 'Bunga Lestari', 'H', 'A', 'H', '22'],
+                        ['3', 'Cahya Ramadhan', 'H', 'H', 'I', '22'],
+                      ].map((row) => (
+                        <div key={row[0]} className="grid grid-cols-6 text-sm text-slate-200 border-t border-slate-700">
+                          {row.map((cell, index) => (
+                            <div key={`${row[0]}-${index}`} className="px-3 py-3 border-r border-slate-700 last:border-r-0">
+                              {cell}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section id="fitur" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14">
+            <div className="flex items-end justify-between gap-4 mb-6">
+              <div>
+                <div className="text-xs font-bold uppercase tracking-[0.22em] text-indigo-500">Fitur Utama</div>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-display mt-2">Dibangun untuk pekerjaan harian sekolah</h2>
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {highlights.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div key={item.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4">
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div className="text-base font-bold text-slate-900">{item.title}</div>
+                    <p className="text-sm text-slate-600 mt-2 leading-6">{item.text}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section id="modul" className="border-y border-slate-200 bg-white">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14">
+              <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-[0.22em] text-indigo-500">Modul</div>
+                  <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-display mt-2">Satu sistem, banyak pekerjaan selesai</h2>
+                  <p className="text-sm text-slate-600 mt-3 leading-7">
+                    Absensi Premium merangkum operasional harian sekolah ke dalam beberapa modul yang saling terhubung.
+                  </p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {modules.map((item) => (
+                    <div key={item.title} className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                      <div className="text-base font-bold text-slate-900">{item.title}</div>
+                      <p className="text-sm text-slate-600 mt-2 leading-6">{item.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section id="alur" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14">
+            <div className="text-xs font-bold uppercase tracking-[0.22em] text-indigo-500">Alur Kerja</div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-display mt-2">Alur yang singkat dan jelas</h2>
+            <div className="grid gap-4 mt-6 lg:grid-cols-4">
+              {workflows.map((item, index) => (
+                <div key={item} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold">
+                    {index + 1}
+                  </div>
+                  <p className="text-sm text-slate-700 mt-4 leading-6">{item}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="bg-slate-900 text-white">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14">
+              <div className="grid gap-6 lg:grid-cols-3">
+                {audiences.map((item) => (
+                  <div key={item.title} className="rounded-2xl border border-slate-700 bg-slate-950 p-5">
+                    <div className="text-base font-bold">{item.title}</div>
+                    <p className="text-sm text-slate-300 mt-2 leading-6">{item.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section id="faq" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14">
+            <div className="text-xs font-bold uppercase tracking-[0.22em] text-indigo-500">FAQ</div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-display mt-2">Pertanyaan yang biasanya muncul</h2>
+            <div className="grid gap-4 mt-6">
+              {faqs.map((item) => (
+                <div key={item.q} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="font-bold text-slate-900">{item.q}</div>
+                  <p className="text-sm text-slate-600 mt-2 leading-6">{item.a}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-16">
+            <div className="rounded-3xl border border-indigo-100 bg-white shadow-sm overflow-hidden">
+              <div className="grid lg:grid-cols-[1.1fr_0.9fr]">
+                <div className="bg-indigo-600 px-6 py-8 sm:px-10 sm:py-10 text-white">
+                  <div className="text-xs font-bold uppercase tracking-[0.22em] text-indigo-100">Mulai</div>
+                  <h2 className="text-2xl sm:text-3xl font-extrabold font-display mt-3 leading-tight">
+                    Masuk ke Absensi Premium dan lihat dashboard sekolah Anda.
+                  </h2>
+                  <p className="text-sm text-indigo-100 mt-4 leading-7 max-w-xl">
+                    Cocok untuk sekolah yang butuh absensi cepat, rekap bulanan yang rapi, dan pengelolaan data yang mudah diaudit.
+                  </p>
+                  <div className="flex flex-wrap gap-3 mt-6">
+                    <button
+                      onClick={() => navigate('/login')}
+                      className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white text-indigo-700 font-bold hover:bg-indigo-50 transition"
+                    >
+                      Buka Aplikasi
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                    <a
+                      href="#fitur"
+                      className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-white/20 bg-white/10 text-white font-semibold hover:bg-white/15 transition"
+                    >
+                      Lihat Fitur
+                      <ChevronRight className="w-4 h-4" />
+                    </a>
+                  </div>
+                </div>
+
+                <div className="px-6 py-8 sm:px-10 sm:py-10 bg-slate-50 border-t lg:border-t-0 lg:border-l border-slate-200">
+                  <div className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">Ringkasan Produk</div>
+                  <div className="grid grid-cols-1 gap-4 mt-5">
+                    {[
+                      { icon: MonitorSmartphone, title: 'Akses Web', text: 'Dipakai langsung dari browser tanpa instalasi khusus.' },
+                      { icon: BadgeCheck, title: 'Peran Berlapis', text: 'Hak akses dipisah untuk super admin, admin, dan guru.' },
+                      { icon: Globe2, title: 'Siap Multi Sekolah', text: 'Cocok untuk satu sekolah atau banyak sekolah dalam satu sistem.' },
+                    ].map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <div key={item.title} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+                          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                            <Icon className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-900">{item.title}</div>
+                            <p className="text-sm text-slate-600 mt-1 leading-6">{item.text}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <footer className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-xs text-slate-500">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black">GP</div>
+                <div>
+                  <div className="font-bold text-slate-900">Absensi Premium</div>
+                  <div>Administrasi Guru Premium</div>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <span>Absensi digital QR</span>
+                <span>Rekap bulanan</span>
+                <span>Manajemen sekolah</span>
+              </div>
+            </footer>
+          </section>
+        </main>
+      </div>
+    );
+  };
+
   // Main UI Screen Route Router based on active tab
   const renderTabContent = () => {
     if (dataLoading && activeTab === 'dashboard') {
@@ -3302,7 +4039,7 @@ export default function App() {
     if (user?.role === 'admin') {
       if (activeTab === 'dashboard') return renderSchoolAdminDashboard();
       if (activeTab === 'teachers') return renderTeachersView();
-      if (activeTab === 'attendance') return renderAttendanceReportView();
+      if (activeTab === 'attendance') return renderAdminMonthlyAttendanceView();
     }
 
     if (user?.role === 'teacher') {
@@ -3339,6 +4076,10 @@ export default function App() {
 
   // Not Logged In
   if (!user) {
+    if (location.pathname !== '/login') {
+      return renderLandingPage();
+    }
+
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased relative overflow-hidden">
         {/* Subtle decorative grid/glow behind */}
@@ -3449,7 +4190,7 @@ export default function App() {
       <div className="flex-1 md:pl-64 flex flex-col min-w-0">
         {renderNavbar()}
 
-        <main className="flex-1 p-6 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto">
+        <main className="flex-1 px-4 py-5 sm:px-5 lg:px-6 space-y-6 overflow-y-auto w-full">
           {renderTabContent()}
         </main>
       </div>
