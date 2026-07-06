@@ -1,5 +1,5 @@
-// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.applicationservice.id';
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3401';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.applicationservice.id';
+// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3401';
 
 export function apiFetch(input: RequestInfo | URL, init?: RequestInit) {
   if (typeof input === 'string') {
