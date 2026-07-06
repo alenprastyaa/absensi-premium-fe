@@ -37,6 +37,7 @@ import {
   Download,
   Upload,
   Eye,
+  EyeOff,
   RefreshCw,
   Award,
   ArrowRight,
@@ -179,6 +180,7 @@ export default function App() {
   // --- LOGIN STATES ---
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [showLoginPassword, setShowLoginPassword] = useState<boolean>(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
 
@@ -251,6 +253,10 @@ export default function App() {
   const [viewingQRStudent, setViewingQRStudent] = useState<StudentWithClass | null>(null);
   const [studentImportLoading, setStudentImportLoading] = useState<boolean>(false);
   const studentFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isPromoteStudentsModalOpen, setIsPromoteStudentsModalOpen] = useState<boolean>(false);
+  const [promoteFromClassId, setPromoteFromClassId] = useState<string>('');
+  const [promoteTargetClassId, setPromoteTargetClassId] = useState<string>('');
+  const [selectedPromoteStudentIds, setSelectedPromoteStudentIds] = useState<string[]>([]);
 
   const [isManualAttendanceModalOpen, setIsManualAttendanceModalOpen] = useState<boolean>(false);
 
@@ -271,6 +277,7 @@ export default function App() {
   const [teacherName, setTeacherName] = useState<string>('');
   const [teacherUsername, setTeacherUsername] = useState<string>('');
   const [teacherPassword, setTeacherPassword] = useState<string>('');
+  const [showTeacherPassword, setShowTeacherPassword] = useState<boolean>(false);
 
   // Students form
   const [studentName, setStudentName] = useState<string>('');
@@ -292,6 +299,9 @@ export default function App() {
   const [oldPassword, setOldPassword] = useState<string>('');
   const [newPassword, setNewPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
+  const [showOldPassword, setShowOldPassword] = useState<boolean>(false);
+  const [showNewPassword, setShowNewPassword] = useState<boolean>(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
   const [passwordChangeLoading, setPasswordChangeLoading] = useState<boolean>(false);
 
   // --- INIT SESSION LOAD ---
@@ -341,6 +351,23 @@ export default function App() {
       setAdminAttendanceClassId(classes[0].id);
     }
   }, [user?.role, classes, adminAttendanceClassId]);
+
+  useEffect(() => {
+    if (!isPromoteStudentsModalOpen) return;
+
+    const candidateIds = students
+      .filter((student) => student.classId === promoteFromClassId)
+      .map((student) => student.id);
+
+    setSelectedPromoteStudentIds((current) => {
+      const retained = current.filter((id) => candidateIds.includes(id));
+      return retained.length > 0 ? retained : candidateIds;
+    });
+
+    if (promoteTargetClassId === promoteFromClassId) {
+      setPromoteTargetClassId(classes.find((item) => item.id !== promoteFromClassId)?.id || '');
+    }
+  }, [isPromoteStudentsModalOpen, promoteFromClassId, promoteTargetClassId, students, classes]);
 
   const showToast = (text: string, type: 'success' | 'warning' | 'error' = 'success') => {
     setAlertMessage({ text, type });
@@ -456,7 +483,7 @@ export default function App() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username: username.trim(), password: password.trim() })
       });
 
       const data = await res.json();
@@ -878,8 +905,9 @@ export default function App() {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(`${data.totalCreated || names.length} guru berhasil diimpor dari Excel.`);
-        loadContextData();
+        const totalCreated = data.totalCreated ?? 0;
+        showToast(`${totalCreated} guru berhasil diimpor dari Excel.`, totalCreated > 0 ? 'success' : 'warning');
+        await loadContextData();
       } else {
         showToast(data.error || 'Gagal impor data guru.', 'error');
       }
@@ -1101,6 +1129,12 @@ export default function App() {
     XLSX.writeFile(workbook, 'template_import_siswa.xlsx');
   };
 
+  const getExcelValue = (row: Record<string, unknown>, aliases: string[]) => {
+    const normalizedAliases = aliases.map((alias) => alias.toLowerCase().replace(/\s+/g, ''));
+    const match = Object.entries(row).find(([key]) => normalizedAliases.includes(key.toLowerCase().replace(/\s+/g, '')));
+    return match ? String(match[1] ?? '').trim() : '';
+  };
+
   const handleImportStudentExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -1124,9 +1158,9 @@ export default function App() {
       }
 
       const payload = rows.map((row) => ({
-        name: String(row['Nama Siswa'] ?? row['Nama'] ?? row['name'] ?? '').trim(),
-        className: String(row['Kelas'] ?? row['Nama Kelas'] ?? row['className'] ?? row['class'] ?? '').trim(),
-        nisn: String(row['NISN'] ?? row['Nisn'] ?? row['nisn'] ?? '').trim(),
+        name: getExcelValue(row, ['Nama Siswa', 'Nama', 'Name']),
+        className: getExcelValue(row, ['Kelas', 'Nama Kelas', 'Class Name', 'Class', 'Rombel']),
+        nisn: getExcelValue(row, ['NISN', 'Nisn', 'Nomor NISN', 'No NISN']),
       })).filter((row) => row.name && row.className && row.nisn);
 
       if (payload.length === 0) {
@@ -1141,8 +1175,11 @@ export default function App() {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(`${data.totalCreated || payload.length} siswa berhasil diimpor dari Excel.`);
-        loadContextData();
+        const totalCreated = data.totalCreated ?? 0;
+        const totalSkipped = data.totalSkipped ?? 0;
+        const firstSkippedReason = Array.isArray(data.skipped) && data.skipped.length > 0 ? ` Contoh gagal: ${data.skipped[0].reason}.` : '';
+        showToast(`${totalCreated} siswa berhasil diimpor. ${totalSkipped} dilewati.${firstSkippedReason}`, totalCreated > 0 ? 'success' : 'warning');
+        await loadContextData();
       } else {
         showToast(data.error || 'Gagal impor data siswa.', 'error');
       }
@@ -1348,6 +1385,64 @@ export default function App() {
       </html>
     `);
     printWindow.document.close();
+  };
+
+  const getPromoteStudentCandidates = () =>
+    students.filter((student) => student.classId === promoteFromClassId);
+
+  const openPromoteStudentsModal = () => {
+    const defaultFromClassId = filterClass !== 'all' ? filterClass : classes[0]?.id || '';
+    const defaultTargetClassId = classes.find((item) => item.id !== defaultFromClassId)?.id || '';
+    setPromoteFromClassId(defaultFromClassId);
+    setPromoteTargetClassId(defaultTargetClassId);
+    setSelectedPromoteStudentIds(students.filter((student) => student.classId === defaultFromClassId).map((student) => student.id));
+    setIsPromoteStudentsModalOpen(true);
+  };
+
+  const handlePromoteStudents = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!promoteFromClassId || !promoteTargetClassId) {
+      showToast('Pilih kelas asal dan kelas tujuan.', 'error');
+      return;
+    }
+
+    if (promoteFromClassId === promoteTargetClassId) {
+      showToast('Kelas tujuan harus berbeda dari kelas asal.', 'error');
+      return;
+    }
+
+    if (selectedPromoteStudentIds.length === 0) {
+      showToast('Pilih minimal satu siswa untuk dinaikkan kelas.', 'error');
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/admin/students/promote', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          fromClassId: promoteFromClassId,
+          targetClassId: promoteTargetClassId,
+          studentIds: selectedPromoteStudentIds,
+        }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        showToast(`${data.totalPromoted || selectedPromoteStudentIds.length} siswa dipindahkan dari ${data.fromClassName} ke ${data.targetClassName}.`);
+        setIsPromoteStudentsModalOpen(false);
+        setSelectedPromoteStudentIds([]);
+        await loadContextData();
+      } else {
+        showToast(data.error || 'Gagal memproses kenaikan kelas.', 'error');
+      }
+    } catch {
+      showToast('Koneksi terputus.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   // --- MANUAL ATTENDANCE & SCAN HANDLING ---
@@ -3342,6 +3437,16 @@ export default function App() {
             </button>
             <button
               type="button"
+              onClick={openPromoteStudentsModal}
+              disabled={classes.length < 2 || students.length === 0}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold rounded-xl text-sm transition"
+              id="btn-promote-students"
+            >
+              <ArrowRight className="w-4 h-4" />
+              Kenaikan Kelas
+            </button>
+            <button
+              type="button"
               onClick={() => void handlePrintStudentQRCards(filteredStudents)}
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm transition"
               id="btn-print-student-qr-bulk"
@@ -4218,38 +4323,68 @@ export default function App() {
           <form onSubmit={handleChangePassword} className="space-y-5">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Password Lama</label>
-              <input
-                type="password"
-                required
-                value={oldPassword}
-                onChange={(e) => setOldPassword(e.target.value)}
-                placeholder="Masukkan password lama Anda"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500 focus:bg-white text-slate-800 font-semibold"
-              />
+              <div className="relative">
+                <input
+                  type={showOldPassword ? 'text' : 'password'}
+                  required
+                  value={oldPassword}
+                  onChange={(e) => setOldPassword(e.target.value)}
+                  placeholder="Masukkan password lama Anda"
+                  className="w-full px-4 py-3 pr-12 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500 focus:bg-white text-slate-800 font-semibold"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowOldPassword((value) => !value)}
+                  className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-700"
+                  aria-label={showOldPassword ? 'Sembunyikan password' : 'Lihat password'}
+                >
+                  {showOldPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Password Baru</label>
-              <input
-                type="password"
-                required
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Masukkan password baru (min. 4 karakter)"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500 focus:bg-white text-slate-800 font-semibold"
-              />
+              <div className="relative">
+                <input
+                  type={showNewPassword ? 'text' : 'password'}
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Masukkan password baru (min. 4 karakter)"
+                  className="w-full px-4 py-3 pr-12 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500 focus:bg-white text-slate-800 font-semibold"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword((value) => !value)}
+                  className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-700"
+                  aria-label={showNewPassword ? 'Sembunyikan password' : 'Lihat password'}
+                >
+                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Konfirmasi Password Baru</label>
-              <input
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Ketik ulang password baru Anda"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500 focus:bg-white text-slate-800 font-semibold"
-              />
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Ketik ulang password baru Anda"
+                  className="w-full px-4 py-3 pr-12 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500 focus:bg-white text-slate-800 font-semibold"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((value) => !value)}
+                  className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-700"
+                  aria-label={showConfirmPassword ? 'Sembunyikan password' : 'Lihat password'}
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <div className="pt-2 border-t border-slate-100 flex justify-end gap-3">
@@ -4768,15 +4903,25 @@ export default function App() {
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
                   Password
                 </label>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-indigo-500 focus:border-indigo-500"
-                  placeholder="••••••••"
-                  id="login-password"
-                />
+                <div className="relative">
+                  <input
+                    type={showLoginPassword ? 'text' : 'password'}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-4 py-3 pr-12 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-indigo-500 focus:border-indigo-500"
+                    placeholder="••••••••"
+                    id="login-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPassword((value) => !value)}
+                    className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-white"
+                    aria-label={showLoginPassword ? 'Sembunyikan password' : 'Lihat password'}
+                  >
+                    {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -5257,14 +5402,24 @@ export default function App() {
 
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                 <label className="block text-slate-500 font-bold mb-1 uppercase">Reset Password (Opsional)</label>
-                <input
-                  type="password"
-                  value={teacherPassword}
-                  onChange={(e) => setTeacherPassword(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-indigo-500 mt-1"
-                  placeholder="Kosongkan jika tidak diubah..."
-                  id="modal-edit-teacher-password"
-                />
+                <div className="relative mt-1">
+                  <input
+                    type={showTeacherPassword ? 'text' : 'password'}
+                    value={teacherPassword}
+                    onChange={(e) => setTeacherPassword(e.target.value)}
+                    className="w-full px-3 py-2 pr-10 bg-white border border-slate-200 rounded-xl text-sm focus:outline-indigo-500"
+                    placeholder="Kosongkan jika tidak diubah..."
+                    id="modal-edit-teacher-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowTeacherPassword((value) => !value)}
+                    className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-700"
+                    aria-label={showTeacherPassword ? 'Sembunyikan password' : 'Lihat password'}
+                  >
+                    {showTeacherPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               <div className="border-t border-slate-100 pt-4 flex items-center justify-end gap-2">
@@ -5500,7 +5655,126 @@ export default function App() {
         </div>
       )}
 
-      {/* 8b. School Admin: Student Detail Modal */}
+      {/* 8b. School Admin: Promote Students Modal */}
+      {isPromoteStudentsModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-3xl w-full shadow-xl border border-slate-100 p-6 max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <div>
+                <h3 className="text-lg font-bold font-display text-slate-800">Kenaikan Kelas</h3>
+                <p className="text-xs text-slate-500 mt-1">Pilih siswa dari kelas asal untuk dipindahkan ke kelas tujuan.</p>
+              </div>
+              <button onClick={() => setIsPromoteStudentsModalOpen(false)} className="text-slate-400 hover:text-slate-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handlePromoteStudents} className="flex-1 min-h-0 flex flex-col gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label className="block text-slate-500 font-bold mb-1 uppercase">Kelas Asal</label>
+                  <select
+                    value={promoteFromClassId}
+                    onChange={(e) => setPromoteFromClassId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500"
+                    id="promote-from-class"
+                  >
+                    <option value="">-- Pilih Kelas Asal --</option>
+                    {classes.map((item) => (
+                      <option key={item.id} value={item.id}>{item.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-500 font-bold mb-1 uppercase">Kelas Tujuan</label>
+                  <select
+                    value={promoteTargetClassId}
+                    onChange={(e) => setPromoteTargetClassId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500"
+                    id="promote-target-class"
+                  >
+                    <option value="">-- Pilih Kelas Tujuan --</option>
+                    {classes
+                      .filter((item) => item.id !== promoteFromClassId)
+                      .map((item) => (
+                        <option key={item.id} value={item.id}>{item.name}</option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-xs">
+                <div className="text-slate-500">
+                  {getPromoteStudentCandidates().length} siswa di kelas asal, {selectedPromoteStudentIds.length} dipilih
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const candidateIds = getPromoteStudentCandidates().map((student) => student.id);
+                    const isAllSelected = candidateIds.length > 0 && candidateIds.every((id) => selectedPromoteStudentIds.includes(id));
+                    setSelectedPromoteStudentIds(isAllSelected ? [] : candidateIds);
+                  }}
+                  className="text-indigo-600 hover:text-indigo-700 font-bold"
+                  id="btn-toggle-select-promote-students"
+                >
+                  {getPromoteStudentCandidates().length > 0 && getPromoteStudentCandidates().every((student) => selectedPromoteStudentIds.includes(student.id))
+                    ? 'Batal Pilih Semua'
+                    : 'Pilih Semua'}
+                </button>
+              </div>
+
+              <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
+                {getPromoteStudentCandidates().length === 0 ? (
+                  <div className="py-10 text-center text-sm text-slate-400">
+                    Belum ada siswa pada kelas asal yang dipilih.
+                  </div>
+                ) : (
+                  getPromoteStudentCandidates().map((student) => (
+                    <label key={student.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedPromoteStudentIds.includes(student.id)}
+                        onChange={(e) => {
+                          setSelectedPromoteStudentIds((current) =>
+                            e.target.checked ? [...current, student.id] : current.filter((id) => id !== student.id)
+                          );
+                        }}
+                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-sm text-slate-800">{student.name}</div>
+                        <div className="text-xs text-slate-500 font-mono">{student.nisn} • {student.username || '-'}</div>
+                      </div>
+                      <div className="text-xs font-semibold text-slate-400">{student.className}</div>
+                    </label>
+                  ))
+                )}
+              </div>
+
+              <div className="border-t border-slate-100 pt-4 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPromoteStudentsModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading || selectedPromoteStudentIds.length === 0}
+                  className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl disabled:bg-slate-200 disabled:text-slate-400"
+                  id="modal-promote-students-submit"
+                >
+                  {actionLoading ? 'Memproses...' : 'Naikkan Kelas'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 8c. School Admin: Student Detail Modal */}
       {viewingStudent && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full shadow-xl border border-slate-100 p-6 max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
