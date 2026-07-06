@@ -1563,7 +1563,7 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  const renderAdminMonthlyAttendanceView = () => {
+  const renderMonthlyAttendanceView = () => {
     const monthIndex = Number(adminAttendanceMonth);
     const year = Number(adminAttendanceYear);
     const days = getMonthDays(year, monthIndex);
@@ -1808,7 +1808,6 @@ export default function App() {
       admin: [
         { id: 'dashboard', label: 'Dashboard', icon: Shield },
         { id: 'teachers', label: 'Data Guru', icon: Users },
-        { id: 'attendance', label: 'Laporan Absensi', icon: Calendar },
         { id: 'password', label: 'Ganti Password', icon: Key },
       ],
       teacher: [
@@ -4039,7 +4038,6 @@ export default function App() {
     if (user?.role === 'admin') {
       if (activeTab === 'dashboard') return renderSchoolAdminDashboard();
       if (activeTab === 'teachers') return renderTeachersView();
-      if (activeTab === 'attendance') return renderAdminMonthlyAttendanceView();
     }
 
     if (user?.role === 'teacher') {
@@ -4047,7 +4045,7 @@ export default function App() {
       if (activeTab === 'classes') return renderClassesView();
       if (activeTab === 'students') return renderStudentsView();
       if (activeTab === 'scan') return renderTeacherScanView();
-      if (activeTab === 'attendance') return renderAttendanceReportView();
+      if (activeTab === 'attendance') return renderMonthlyAttendanceView();
       if (activeTab === 'academic') return <AcademicModule user={user} classes={classes} teachers={teachers} token={token} />;
     }
 
