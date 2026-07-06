@@ -77,6 +77,88 @@ import AcademicModule from './components/AcademicModule';
 import SchoolAddressPicker from './components/SchoolAddressPicker';
 import { apiFetch } from './lib/api';
 
+const NATIONAL_CALENDAR_DAYS: Record<string, { name: string; type: 'holiday' | 'joint_leave' }> = {
+  '2024-01-01': { name: 'Tahun Baru Masehi', type: 'holiday' },
+  '2024-02-08': { name: 'Isra Mikraj Nabi Muhammad SAW', type: 'holiday' },
+  '2024-02-09': { name: 'Cuti Bersama Tahun Baru Imlek', type: 'joint_leave' },
+  '2024-02-10': { name: 'Tahun Baru Imlek', type: 'holiday' },
+  '2024-03-11': { name: 'Hari Suci Nyepi', type: 'holiday' },
+  '2024-03-12': { name: 'Cuti Bersama Hari Suci Nyepi', type: 'joint_leave' },
+  '2024-03-29': { name: 'Wafat Isa Almasih', type: 'holiday' },
+  '2024-03-31': { name: 'Hari Paskah', type: 'holiday' },
+  '2024-04-08': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
+  '2024-04-09': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
+  '2024-04-10': { name: 'Idul Fitri', type: 'holiday' },
+  '2024-04-11': { name: 'Idul Fitri', type: 'holiday' },
+  '2024-04-12': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
+  '2024-04-15': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
+  '2024-05-01': { name: 'Hari Buruh Internasional', type: 'holiday' },
+  '2024-05-09': { name: 'Kenaikan Isa Almasih', type: 'holiday' },
+  '2024-05-10': { name: 'Cuti Bersama Kenaikan Isa Almasih', type: 'joint_leave' },
+  '2024-05-23': { name: 'Hari Raya Waisak', type: 'holiday' },
+  '2024-05-24': { name: 'Cuti Bersama Hari Raya Waisak', type: 'joint_leave' },
+  '2024-06-01': { name: 'Hari Lahir Pancasila', type: 'holiday' },
+  '2024-06-17': { name: 'Idul Adha', type: 'holiday' },
+  '2024-06-18': { name: 'Cuti Bersama Idul Adha', type: 'joint_leave' },
+  '2024-07-07': { name: 'Tahun Baru Islam', type: 'holiday' },
+  '2024-08-17': { name: 'Hari Kemerdekaan Republik Indonesia', type: 'holiday' },
+  '2024-09-16': { name: 'Maulid Nabi Muhammad SAW', type: 'holiday' },
+  '2024-12-25': { name: 'Hari Raya Natal', type: 'holiday' },
+  '2024-12-26': { name: 'Cuti Bersama Hari Raya Natal', type: 'joint_leave' },
+  '2025-01-01': { name: 'Tahun Baru Masehi', type: 'holiday' },
+  '2025-01-27': { name: 'Isra Mikraj Nabi Muhammad SAW', type: 'holiday' },
+  '2025-01-28': { name: 'Cuti Bersama Tahun Baru Imlek', type: 'joint_leave' },
+  '2025-01-29': { name: 'Tahun Baru Imlek', type: 'holiday' },
+  '2025-03-28': { name: 'Cuti Bersama Hari Suci Nyepi', type: 'joint_leave' },
+  '2025-03-29': { name: 'Hari Suci Nyepi', type: 'holiday' },
+  '2025-03-31': { name: 'Idul Fitri', type: 'holiday' },
+  '2025-04-01': { name: 'Idul Fitri', type: 'holiday' },
+  '2025-04-02': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
+  '2025-04-03': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
+  '2025-04-04': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
+  '2025-04-07': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
+  '2025-04-18': { name: 'Wafat Isa Almasih', type: 'holiday' },
+  '2025-04-20': { name: 'Hari Paskah', type: 'holiday' },
+  '2025-05-01': { name: 'Hari Buruh Internasional', type: 'holiday' },
+  '2025-05-12': { name: 'Hari Raya Waisak', type: 'holiday' },
+  '2025-05-13': { name: 'Cuti Bersama Hari Raya Waisak', type: 'joint_leave' },
+  '2025-05-29': { name: 'Kenaikan Isa Almasih', type: 'holiday' },
+  '2025-05-30': { name: 'Cuti Bersama Kenaikan Isa Almasih', type: 'joint_leave' },
+  '2025-06-01': { name: 'Hari Lahir Pancasila', type: 'holiday' },
+  '2025-06-06': { name: 'Idul Adha', type: 'holiday' },
+  '2025-06-09': { name: 'Cuti Bersama Idul Adha', type: 'joint_leave' },
+  '2025-06-27': { name: 'Tahun Baru Islam', type: 'holiday' },
+  '2025-08-17': { name: 'Hari Kemerdekaan Republik Indonesia', type: 'holiday' },
+  '2025-09-05': { name: 'Maulid Nabi Muhammad SAW', type: 'holiday' },
+  '2025-12-25': { name: 'Hari Raya Natal', type: 'holiday' },
+  '2025-12-26': { name: 'Cuti Bersama Hari Raya Natal', type: 'joint_leave' },
+  '2026-01-01': { name: 'Tahun Baru Masehi', type: 'holiday' },
+  '2026-01-16': { name: 'Isra Mikraj Nabi Muhammad SAW', type: 'holiday' },
+  '2026-02-16': { name: 'Cuti Bersama Tahun Baru Imlek', type: 'joint_leave' },
+  '2026-02-17': { name: 'Tahun Baru Imlek', type: 'holiday' },
+  '2026-03-18': { name: 'Cuti Bersama Hari Suci Nyepi', type: 'joint_leave' },
+  '2026-03-19': { name: 'Hari Suci Nyepi', type: 'holiday' },
+  '2026-03-20': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
+  '2026-03-21': { name: 'Idul Fitri', type: 'holiday' },
+  '2026-03-22': { name: 'Idul Fitri', type: 'holiday' },
+  '2026-03-23': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
+  '2026-03-24': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
+  '2026-04-03': { name: 'Wafat Isa Almasih', type: 'holiday' },
+  '2026-04-05': { name: 'Hari Paskah', type: 'holiday' },
+  '2026-05-01': { name: 'Hari Buruh Internasional', type: 'holiday' },
+  '2026-05-14': { name: 'Kenaikan Isa Almasih', type: 'holiday' },
+  '2026-05-15': { name: 'Cuti Bersama Kenaikan Isa Almasih', type: 'joint_leave' },
+  '2026-05-27': { name: 'Idul Adha', type: 'holiday' },
+  '2026-05-28': { name: 'Cuti Bersama Idul Adha', type: 'joint_leave' },
+  '2026-05-31': { name: 'Hari Raya Waisak', type: 'holiday' },
+  '2026-06-01': { name: 'Hari Lahir Pancasila', type: 'holiday' },
+  '2026-06-16': { name: 'Tahun Baru Islam', type: 'holiday' },
+  '2026-08-17': { name: 'Hari Kemerdekaan Republik Indonesia', type: 'holiday' },
+  '2026-08-25': { name: 'Maulid Nabi Muhammad SAW', type: 'holiday' },
+  '2026-12-24': { name: 'Cuti Bersama Hari Raya Natal', type: 'joint_leave' },
+  '2026-12-25': { name: 'Hari Raya Natal', type: 'holiday' },
+};
+
 export default function App() {
   const fetch = apiFetch;
   const location = useLocation();
@@ -124,9 +206,15 @@ export default function App() {
   const [filterYear, setFilterYear] = useState<string>(new Date().getFullYear().toString());
   const [recapViewType, setRecapViewType] = useState<'summary' | 'detailed'>('summary');
   const [isIframe, setIsIframe] = useState<boolean>(false);
+  const [attendancePeriodMode, setAttendancePeriodMode] = useState<'month' | 'range'>('month');
   const [adminAttendanceMonth, setAdminAttendanceMonth] = useState<number>(new Date().getMonth());
   const [adminAttendanceYear, setAdminAttendanceYear] = useState<string>(new Date().getFullYear().toString());
   const [adminAttendanceClassId, setAdminAttendanceClassId] = useState<string>('all');
+  const [attendanceRangeStartDate, setAttendanceRangeStartDate] = useState<string>(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+  });
+  const [attendanceRangeEndDate, setAttendanceRangeEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
     setIsIframe(window.self !== window.top);
@@ -1333,13 +1421,15 @@ export default function App() {
   // Get current attendance statistics
   const getAttendanceStats = () => {
     const todayStr = new Date().toISOString().split('T')[0];
+    const today = new Date(`${todayStr}T00:00:00`);
+    const isTodayNonAttendanceDay = today.getDay() === 0 || today.getDay() === 6 || !!getNationalCalendarDay(todayStr);
     const todayLogs = attendances.filter(a => a.date === todayStr);
     const totalSiswa = students.length;
 
     const hadir = todayLogs.filter(l => l.status === 'hadir').length;
     const sakit = todayLogs.filter(l => l.status === 'sakit').length;
     const izin = todayLogs.filter(l => l.status === 'izin').length;
-    const alfa = totalSiswa - hadir - sakit - izin; // Default unrecorded is Alfa in active system
+    const alfa = isTodayNonAttendanceDay ? 0 : totalSiswa - hadir - sakit - izin; // Non-attendance days are not counted as Alfa.
 
     const presentPercentage = totalSiswa > 0 ? Math.round((hadir / totalSiswa) * 100) : 0;
 
@@ -1465,23 +1555,80 @@ export default function App() {
   const getMonthLabel = (year: number, monthIndex: number) =>
     new Date(year, monthIndex, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
 
+  const getDateLabel = (date: string) => {
+    const parsedDate = new Date(`${date}T00:00:00`);
+    if (!date || Number.isNaN(parsedDate.getTime())) return '-';
+    return parsedDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+  };
+
+  const getNationalCalendarDay = (date: string) => NATIONAL_CALENDAR_DAYS[date] || null;
+
+  const getAttendanceDay = (year: number, monthIndex: number, day: number) => {
+    const date = `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`;
+    const parsedDate = new Date(year, monthIndex, day);
+    const weekday = parsedDate.getDay();
+    const nationalDay = getNationalCalendarDay(date);
+    const isWeekend = weekday === 0 || weekday === 6;
+
+    return {
+      day,
+      date,
+      weekday,
+      weekdayLabel: ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'][weekday],
+      monthShort: parsedDate.toLocaleDateString('id-ID', { month: 'short' }),
+      isWeekend,
+      nationalDay,
+      isNationalHoliday: !!nationalDay,
+      isNonAttendanceDay: isWeekend || !!nationalDay,
+      nonAttendanceReason: nationalDay?.name || (isWeekend ? 'Akhir pekan' : ''),
+    };
+  };
+
   const getMonthDays = (year: number, monthIndex: number) => {
     const totalDays = new Date(year, monthIndex + 1, 0).getDate();
-    const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 
     return Array.from({ length: totalDays }, (_, index) => {
       const day = index + 1;
-      const date = `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`;
-      const weekday = new Date(year, monthIndex, day).getDay();
-
-      return {
-        day,
-        date,
-        weekday,
-        weekdayLabel: dayNames[weekday],
-        isWeekend: weekday === 0 || weekday === 6,
-      };
+      return getAttendanceDay(year, monthIndex, day);
     });
+  };
+
+  const getDateRangeDays = (startDate: string, endDate: string) => {
+    const start = new Date(`${startDate}T00:00:00`);
+    const end = new Date(`${endDate}T00:00:00`);
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return [];
+    }
+
+    const from = start <= end ? start : end;
+    const to = start <= end ? end : start;
+    const days = [];
+
+    for (let cursor = new Date(from); cursor <= to; cursor.setDate(cursor.getDate() + 1)) {
+      const year = cursor.getFullYear();
+      const monthIndex = cursor.getMonth();
+      const day = cursor.getDate();
+      days.push(getAttendanceDay(year, monthIndex, day));
+    }
+
+    return days;
+  };
+
+  const getAttendancePeriodDays = () => {
+    if (attendancePeriodMode === 'range') {
+      return getDateRangeDays(attendanceRangeStartDate, attendanceRangeEndDate);
+    }
+
+    return getMonthDays(Number(adminAttendanceYear), Number(adminAttendanceMonth));
+  };
+
+  const getAttendancePeriodLabel = () => {
+    if (attendancePeriodMode === 'range') {
+      return `${getDateLabel(attendanceRangeStartDate)} - ${getDateLabel(attendanceRangeEndDate)}`;
+    }
+
+    return getMonthLabel(Number(adminAttendanceYear), Number(adminAttendanceMonth));
   };
 
   const getMonthlyAttendanceStatus = (studentId: string, date: string) => {
@@ -1497,17 +1644,16 @@ export default function App() {
   };
 
   const getMonthlyAttendanceRows = () => {
-    const monthIndex = Number(adminAttendanceMonth);
-    const year = Number(adminAttendanceYear);
-    const days = getMonthDays(year, monthIndex);
+    const days = getAttendancePeriodDays();
     const studentsInScope = getMonthlyAttendanceStudents();
 
     return studentsInScope.map((student, index) => {
       const dayStatuses = days.map((day) => getMonthlyAttendanceStatus(student.id, day.date));
-      const hadir = dayStatuses.filter((status) => status === 'hadir').length;
-      const sakit = dayStatuses.filter((status) => status === 'sakit').length;
-      const izin = dayStatuses.filter((status) => status === 'izin').length;
-      const alfa = dayStatuses.filter((status) => status === 'alfa').length;
+      const attendanceDayStatuses = dayStatuses.filter((_, dayIndex) => !days[dayIndex].isNonAttendanceDay);
+      const hadir = attendanceDayStatuses.filter((status) => status === 'hadir').length;
+      const sakit = attendanceDayStatuses.filter((status) => status === 'sakit').length;
+      const izin = attendanceDayStatuses.filter((status) => status === 'izin').length;
+      const alfa = attendanceDayStatuses.filter((status) => status === 'alfa').length;
 
       return {
         index: index + 1,
@@ -1522,53 +1668,238 @@ export default function App() {
     });
   };
 
-  const handleDownloadMonthlyAttendance = () => {
+  const handleDownloadAttendancePdf = async () => {
     const rows = getMonthlyAttendanceRows();
     if (rows.length === 0) {
       showToast('Tidak ada data absensi untuk diunduh.', 'error');
       return;
     }
 
-    const monthIndex = Number(adminAttendanceMonth);
-    const year = Number(adminAttendanceYear);
-    const days = getMonthDays(year, monthIndex);
-    const headers = ['No', 'Nama Siswa', 'NISN', 'Kelas', ...days.map((day) => String(day.day)), 'Total'];
-    const csv = [
-      headers.join(','),
-      ...rows.map((row) => {
-        const values = [
-          row.index,
-          `"${row.student.name.replace(/"/g, '""')}"`,
-          row.student.nisn,
-          `"${row.student.className.replace(/"/g, '""')}"`,
-          ...row.dayStatuses.map((status, dayIndex) => {
-            const day = days[dayIndex];
-            if (day.isWeekend) return '-';
-            return status ? status.slice(0, 1).toUpperCase() : '-';
-          }),
-          row.total,
-        ];
-        return values.join(',');
-      }),
-    ].join('\n');
+    const days = getAttendancePeriodDays();
+    if (days.length === 0) {
+      showToast('Periode tanggal tidak valid.', 'error');
+      return;
+    }
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `rekap_absensi_${getMonthLabel(year, monthIndex).replace(/\s+/g, '_').toLowerCase()}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    const { default: autoTable } = await import('jspdf-autotable');
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const marginX = 10;
+    const periodLabel = getAttendancePeriodLabel();
+    const selectedClassName = adminAttendanceClassId === 'all'
+      ? 'Semua Kelas'
+      : classes.find((item) => item.id === adminAttendanceClassId)?.name || 'Semua Kelas';
+    const printedAt = new Date().toLocaleDateString('id-ID', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    const effectiveDays = days.filter((day) => !day.isNonAttendanceDay).length;
+    const nonAttendanceDays = days.length - effectiveDays;
+    const filePeriod = periodLabel.replace(/\s+/g, '_').replace(/[^\w-]/g, '').toLowerCase();
+    const statusCode = (status: AttendanceStatus | null) => {
+      if (status === 'hadir') return 'H';
+      if (status === 'sakit') return 'S';
+      if (status === 'izin') return 'I';
+      if (status === 'alfa') return 'A';
+      return '-';
+    };
+    const totals = rows.reduce(
+      (acc, row) => {
+        acc.hadir += row.hadir;
+        acc.sakit += row.sakit;
+        acc.izin += row.izin;
+        acc.alfa += row.alfa;
+        return acc;
+      },
+      { hadir: 0, sakit: 0, izin: 0, alfa: 0 }
+    );
+
+    const drawHeader = (sectionTitle = 'REKAPITULASI ABSENSI SISWA') => {
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, pageWidth, 25, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text(sectionTitle, marginX, 10);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(school?.name || 'Administrasi Guru Premium', marginX, 16);
+      doc.text(school?.address || 'Sistem Absensi Digital', marginX, 21);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Absensi Premium', pageWidth - marginX, 10, { align: 'right' });
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Dicetak: ${printedAt}`, pageWidth - marginX, 16, { align: 'right' });
+    };
+
+    const drawFooter = () => {
+      const pageCount = doc.getNumberOfPages();
+      for (let page = 1; page <= pageCount; page += 1) {
+        doc.setPage(page);
+        doc.setTextColor(100, 116, 139);
+        doc.setFontSize(8);
+        doc.text(`Halaman ${page} dari ${pageCount}`, pageWidth - marginX, pageHeight - 6, { align: 'right' });
+        doc.text('Keterangan: H=Hadir, S=Sakit, I=Izin, A=Alfa, L=Libur nasional/cuti bersama/akhir pekan, -=Tidak ada data', marginX, pageHeight - 6);
+      }
+    };
+
+    drawHeader();
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('Informasi Laporan', marginX, 34);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(`Periode: ${periodLabel}`, marginX, 41);
+    doc.text(`Kelas: ${selectedClassName}`, marginX, 47);
+    doc.text(`Jumlah siswa: ${rows.length} | Hari efektif: ${effectiveDays} | Hari libur/cuti: ${nonAttendanceDays}`, marginX, 53);
+
+    const summaryY = 32;
+    const summaryCards = [
+      { label: 'Hadir', value: totals.hadir, color: [5, 150, 105] },
+      { label: 'Sakit', value: totals.sakit, color: [217, 119, 6] },
+      { label: 'Izin', value: totals.izin, color: [37, 99, 235] },
+      { label: 'Alfa', value: totals.alfa, color: [225, 29, 72] },
+    ];
+    summaryCards.forEach((item, index) => {
+      const x = 137 + index * 37;
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(x, summaryY, 31, 20, 2, 2, 'FD');
+      doc.setTextColor(item.color[0], item.color[1], item.color[2]);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.text(String(item.value), x + 15.5, summaryY + 9, { align: 'center' });
+      doc.setTextColor(71, 85, 105);
+      doc.setFontSize(8);
+      doc.text(item.label.toUpperCase(), x + 15.5, summaryY + 16, { align: 'center' });
+    });
+
+    autoTable(doc, {
+      startY: 62,
+      head: [['No', 'Nama Siswa', 'NISN', 'Kelas', 'Hadir', 'Sakit', 'Izin', 'Alfa', '% Hadir']],
+      body: rows.map((row) => {
+        const recordedTotal = row.hadir + row.sakit + row.izin + row.alfa;
+        const percentage = recordedTotal > 0 ? Math.round((row.hadir / recordedTotal) * 100) : 0;
+        return [
+          String(row.index),
+          row.student.name,
+          row.student.nisn,
+          row.student.className,
+          String(row.hadir),
+          String(row.sakit),
+          String(row.izin),
+          String(row.alfa),
+          `${percentage}%`,
+        ];
+      }),
+      theme: 'grid',
+      styles: {
+        fontSize: 8,
+        cellPadding: 1.8,
+        lineColor: [226, 232, 240],
+        lineWidth: 0.1,
+      },
+      headStyles: {
+        fillColor: [79, 70, 229],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 10 },
+        1: { cellWidth: 58 },
+        2: { cellWidth: 26 },
+        3: { cellWidth: 28 },
+        4: { halign: 'center' },
+        5: { halign: 'center' },
+        6: { halign: 'center' },
+        7: { halign: 'center' },
+        8: { halign: 'center' },
+      },
+    });
+
+    const chunkSize = 16;
+    for (let start = 0; start < days.length; start += chunkSize) {
+      const chunkDays = days.slice(start, start + chunkSize);
+      doc.addPage();
+      drawHeader(`DETAIL ABSENSI PER TANGGAL (${start + 1}-${start + chunkDays.length} DARI ${days.length})`);
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text(`${selectedClassName} | ${periodLabel}`, marginX, 33);
+
+      autoTable(doc, {
+        startY: 39,
+        head: [[
+          'No',
+          'Nama Siswa',
+          ...chunkDays.map((day) => `${day.day}\n${day.monthShort}\n${day.weekdayLabel}`),
+          ...(start + chunkDays.length >= days.length ? ['H', 'S', 'I', 'A'] : []),
+        ]],
+        body: rows.map((row) => [
+          String(row.index),
+          row.student.name,
+          ...chunkDays.map((day) => {
+            const dayIndex = days.findIndex((item) => item.date === day.date);
+            return day.isNonAttendanceDay ? 'L' : statusCode(row.dayStatuses[dayIndex]);
+          }),
+          ...(start + chunkDays.length >= days.length
+            ? [String(row.hadir), String(row.sakit), String(row.izin), String(row.alfa)]
+            : []),
+        ]),
+        theme: 'grid',
+        styles: {
+          fontSize: 7,
+          cellPadding: 1.4,
+          minCellHeight: 6,
+          lineColor: [226, 232, 240],
+          lineWidth: 0.1,
+          valign: 'middle',
+        },
+        headStyles: {
+          fillColor: [30, 41, 59],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          halign: 'center',
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252],
+        },
+        columnStyles: {
+          0: { halign: 'center', cellWidth: 9 },
+          1: { cellWidth: 52 },
+        },
+        didParseCell: (data) => {
+          if (data.section !== 'body' || data.column.index < 2) return;
+          const value = String(data.cell.raw || '');
+          data.cell.styles.halign = 'center';
+          data.cell.styles.fontStyle = 'bold';
+          if (value === 'H') data.cell.styles.textColor = [5, 150, 105];
+          if (value === 'S') data.cell.styles.textColor = [217, 119, 6];
+          if (value === 'I') data.cell.styles.textColor = [37, 99, 235];
+          if (value === 'A') data.cell.styles.textColor = [225, 29, 72];
+          if (value === 'L') data.cell.styles.textColor = [100, 116, 139];
+          if (value === '-') data.cell.styles.textColor = [148, 163, 184];
+        },
+      });
+    }
+
+    drawFooter();
+    doc.save(`rekap_absensi_${filePeriod}.pdf`);
   };
 
   const renderMonthlyAttendanceView = () => {
-    const monthIndex = Number(adminAttendanceMonth);
-    const year = Number(adminAttendanceYear);
-    const days = getMonthDays(year, monthIndex);
+    const days = getAttendancePeriodDays();
     const rows = getMonthlyAttendanceRows();
-    const monthLabel = getMonthLabel(year, monthIndex);
+    const periodLabel = getAttendancePeriodLabel();
+    const effectiveDays = days.filter((day) => !day.isNonAttendanceDay).length;
+    const nonAttendanceDays = days.length - effectiveDays;
     const className = adminAttendanceClassId === 'all'
       ? 'Semua Kelas'
       : classes.find((item) => item.id === adminAttendanceClassId)?.name || 'Semua Kelas';
@@ -1589,61 +1920,102 @@ export default function App() {
         <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm space-y-5 no-print">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
-              <h3 className="text-xl font-extrabold font-display text-slate-800">Absensi Perbulan</h3>
+              <h3 className="text-xl font-extrabold font-display text-slate-800">Rekap Absensi</h3>
               <p className="text-xs text-slate-500 mt-1">
-                Rekap absensi siswa ditampilkan per tanggal untuk bulan dan kelas yang dipilih.
+                Rekap absensi siswa ditampilkan per tanggal sesuai bulan atau rentang tanggal yang dipilih.
               </p>
             </div>
 
             <button
-              onClick={handleDownloadMonthlyAttendance}
+              onClick={handleDownloadAttendancePdf}
               className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl transition shadow-sm"
               id="btn-download-monthly-attendance"
             >
               <Download className="w-4 h-4" />
-              Unduh Rekap
+              Unduh PDF
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.1fr)_minmax(0,.7fr)_minmax(0,1fr)_auto] gap-4 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 items-end">
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Bulan</label>
+              <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Jenis Rekap</label>
               <select
-                value={String(adminAttendanceMonth)}
-                onChange={(e) => {
-                  setAdminAttendanceMonth(Number(e.target.value));
-                }}
+                value={attendancePeriodMode}
+                onChange={(e) => setAttendancePeriodMode(e.target.value as 'month' | 'range')}
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-base focus:outline-indigo-500"
-                id="admin-attendance-month"
+                id="attendance-period-mode"
               >
-                {Array.from({ length: 12 }, (_, index) => {
-                  return (
-                    <option key={index} value={index}>
-                      {getMonthLabel(Number(adminAttendanceYear), index).split(' ')[0]}
-                    </option>
-                  );
-                })}
+                <option value="month">Bulanan</option>
+                <option value="range">Rentang Tanggal</option>
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Tahun</label>
-              <select
-                value={adminAttendanceYear}
-                onChange={(e) => setAdminAttendanceYear(e.target.value)}
-                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-base focus:outline-indigo-500"
-                id="admin-attendance-year"
-              >
-                {Array.from({ length: 5 }, (_, index) => {
-                  const yearValue = String(new Date().getFullYear() - 2 + index);
-                  return (
-                    <option key={yearValue} value={yearValue}>
-                      {yearValue}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
+            {attendancePeriodMode === 'month' ? (
+              <>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Bulan</label>
+                  <select
+                    value={String(adminAttendanceMonth)}
+                    onChange={(e) => {
+                      setAdminAttendanceMonth(Number(e.target.value));
+                    }}
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-base focus:outline-indigo-500"
+                    id="admin-attendance-month"
+                  >
+                    {Array.from({ length: 12 }, (_, index) => {
+                      return (
+                        <option key={index} value={index}>
+                          {getMonthLabel(Number(adminAttendanceYear), index).split(' ')[0]}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Tahun</label>
+                  <select
+                    value={adminAttendanceYear}
+                    onChange={(e) => setAdminAttendanceYear(e.target.value)}
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-base focus:outline-indigo-500"
+                    id="admin-attendance-year"
+                  >
+                    {Array.from({ length: 7 }, (_, index) => {
+                      const yearValue = String(new Date().getFullYear() - 3 + index);
+                      return (
+                        <option key={yearValue} value={yearValue}>
+                          {yearValue}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Tanggal Mulai</label>
+                  <input
+                    type="date"
+                    value={attendanceRangeStartDate}
+                    onChange={(e) => setAttendanceRangeStartDate(e.target.value)}
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-base focus:outline-indigo-500"
+                    id="attendance-range-start"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Tanggal Akhir</label>
+                  <input
+                    type="date"
+                    value={attendanceRangeEndDate}
+                    onChange={(e) => setAttendanceRangeEndDate(e.target.value)}
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-base focus:outline-indigo-500"
+                    id="attendance-range-end"
+                  />
+                </div>
+              </>
+            )}
 
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Kelas</label>
@@ -1664,6 +2036,7 @@ export default function App() {
 
             <div className="md:justify-self-end text-sm text-slate-500 font-medium">
               {className}
+              <span className="block text-xs text-slate-400 mt-1">{periodLabel}</span>
             </div>
           </div>
 
@@ -1673,20 +2046,26 @@ export default function App() {
               { code: 'alfa', label: 'Alpa', color: 'bg-rose-100 text-rose-700 border-rose-200' },
               { code: 'sakit', label: 'Sakit', color: 'bg-amber-100 text-amber-700 border-amber-200' },
               { code: 'izin', label: 'Izin', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+              { code: 'libur', label: 'Libur / Cuti Bersama', color: 'bg-slate-100 text-slate-600 border-slate-200' },
             ].map((item) => (
               <div key={item.code} className="flex items-center gap-2">
                 <span className={`inline-flex items-center justify-center w-8 h-8 rounded-md border font-extrabold ${item.color}`}>
-                  {item.label.charAt(0)}
+                  {item.code === 'libur' ? 'L' : item.label.charAt(0)}
                 </span>
                 <span className="text-slate-700">{item.label}</span>
               </div>
             ))}
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
               <div className="text-[10px] font-bold uppercase text-slate-400">Total Siswa</div>
               <div className="text-2xl font-extrabold text-slate-800 mt-1">{rows.length}</div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <div className="text-[10px] font-bold uppercase text-slate-400">Hari Efektif</div>
+              <div className="text-2xl font-extrabold text-slate-800 mt-1">{effectiveDays}</div>
+              <div className="text-[10px] font-semibold text-slate-400 mt-1">{nonAttendanceDays} hari libur</div>
             </div>
             <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
               <div className="text-[10px] font-bold uppercase text-emerald-600">Total Hadir</div>
@@ -1711,7 +2090,7 @@ export default function App() {
                   <th className="sticky left-0 z-20 bg-slate-50 p-4 w-14 text-center text-xs font-bold uppercase">No</th>
                   <th className="sticky left-14 z-20 bg-slate-50 p-4 min-w-[220px] text-left text-xs font-bold uppercase">Nama Siswa</th>
                   <th className="p-4 text-center text-sm font-bold text-slate-700" colSpan={days.length}>
-                    {monthLabel}
+                    {periodLabel}
                   </th>
                   <th className="p-4 w-20 text-center text-xs font-bold uppercase">Total</th>
                 </tr>
@@ -1721,10 +2100,12 @@ export default function App() {
                   {days.map((day) => (
                     <th
                       key={day.date}
-                      className={`p-3 w-12 text-center text-sm font-semibold ${day.isWeekend ? 'text-rose-600' : 'text-slate-700'}`}
+                      className={`p-3 w-12 text-center text-sm font-semibold ${day.isNonAttendanceDay ? 'text-rose-600 bg-rose-50' : 'text-slate-700'}`}
+                      title={day.nonAttendanceReason || undefined}
                     >
                       <div className="flex flex-col items-center leading-tight">
                         <span className="font-bold">{day.day}</span>
+                        <span className="text-[10px] uppercase">{day.monthShort}</span>
                         <span className="text-xs">{day.weekdayLabel}</span>
                       </div>
                     </th>
@@ -1736,7 +2117,7 @@ export default function App() {
                 {rows.length === 0 ? (
                   <tr>
                     <td colSpan={days.length + 3} className="py-10 text-center text-slate-400">
-                      Tidak ada data siswa untuk kelas dan bulan ini.
+                      Tidak ada data siswa untuk kelas dan periode ini.
                     </td>
                   </tr>
                 ) : (
@@ -1750,8 +2131,8 @@ export default function App() {
                       </td>
                       {row.dayStatuses.map((status, dayIndex) => {
                         const day = days[dayIndex];
-                        const cellClass = day.isWeekend
-                          ? 'text-slate-400'
+                        const cellClass = day.isNonAttendanceDay
+                          ? 'text-rose-600 bg-rose-50 border-rose-200'
                           : status === 'hadir'
                             ? 'text-emerald-600'
                             : status === 'sakit'
@@ -1763,9 +2144,9 @@ export default function App() {
                                   : 'text-slate-300';
 
                         return (
-                          <td key={`${row.student.id}-${day.date}`} className="p-3 text-center text-sm">
+                          <td key={`${row.student.id}-${day.date}`} className="p-3 text-center text-sm" title={day.nonAttendanceReason || undefined}>
                             <span className={`inline-flex h-8 w-8 items-center justify-center rounded-md border font-bold ${cellClass}`}>
-                              {day.isWeekend ? '-' : status ? status.charAt(0).toUpperCase() : '-'}
+                              {day.isNonAttendanceDay ? 'L' : status ? status.charAt(0).toUpperCase() : '-'}
                             </span>
                           </td>
                         );
@@ -1784,8 +2165,8 @@ export default function App() {
         <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 text-sm text-blue-900 no-print">
           <div className="font-bold mb-1">Keterangan:</div>
           <p className="text-blue-800">
-            Data absensi ditampilkan per tanggal berdasarkan kelas yang dipilih. Hari libur akhir pekan ditandai dengan tanda -
-            dan total di sisi kanan menghitung jumlah hadir.
+            Data absensi ditampilkan per tanggal berdasarkan kelas yang dipilih. Sabtu/Minggu, libur nasional, dan cuti bersama
+            ditandai L serta tidak dihitung sebagai kewajiban absen.
           </p>
         </div>
       </div>
