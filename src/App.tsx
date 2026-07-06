@@ -215,6 +215,11 @@ export default function App() {
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
   });
   const [attendanceRangeEndDate, setAttendanceRangeEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [reportLogoUrl, setReportLogoUrl] = useState<string>('');
+  const [reportLogoUploadLoading, setReportLogoUploadLoading] = useState<boolean>(false);
+  const reportLogoInputRef = useRef<HTMLInputElement | null>(null);
+
+  const getReportLogoStorageKey = () => `absensi_report_logo_${school?.id || user?.schoolId || 'default'}`;
 
   useEffect(() => {
     setIsIframe(window.self !== window.top);
@@ -324,6 +329,10 @@ export default function App() {
   }, [user, activeTab]);
 
   useEffect(() => {
+    setReportLogoUrl(localStorage.getItem(getReportLogoStorageKey()) || '');
+  }, [school?.id, user?.schoolId]);
+
+  useEffect(() => {
     if (user?.role !== 'admin') {
       return;
     }
@@ -338,6 +347,61 @@ export default function App() {
     setTimeout(() => {
       setAlertMessage(null);
     }, 4000);
+  };
+
+  const handleUploadReportLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('File logo harus berupa gambar.', 'error');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    setReportLogoUploadLoading(true);
+
+    try {
+      const response = await globalThis.fetch('https://upload-file.applicationservice.id/api/upload-file', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json() as { status?: number; message?: string; data?: { url?: string } };
+
+      if (!response.ok || data.status !== 200 || !data.data?.url) {
+        showToast(data.message || 'Gagal mengunggah logo laporan.', 'error');
+        return;
+      }
+
+      localStorage.setItem(getReportLogoStorageKey(), data.data.url);
+      setReportLogoUrl(data.data.url);
+      showToast('Logo laporan berhasil diunggah.');
+    } catch {
+      showToast('Gagal menghubungi server upload logo.', 'error');
+    } finally {
+      setReportLogoUploadLoading(false);
+    }
+  };
+
+  const handleRemoveReportLogo = () => {
+    localStorage.removeItem(getReportLogoStorageKey());
+    setReportLogoUrl('');
+    showToast('Logo laporan dihapus.');
+  };
+
+  const getImageDataUrl = async (url: string) => {
+    const response = await globalThis.fetch(url);
+    if (!response.ok) throw new Error('Failed to load image');
+    const blob = await response.blob();
+
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error('Failed to read image'));
+      reader.readAsDataURL(blob);
+    });
   };
 
   const getHeaders = () => {
@@ -1685,7 +1749,7 @@ export default function App() {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const marginX = 10;
+    const marginX = 12;
     const periodLabel = getAttendancePeriodLabel();
     const selectedClassName = adminAttendanceClassId === 'all'
       ? 'Semua Kelas'
@@ -1717,71 +1781,146 @@ export default function App() {
       { hadir: 0, sakit: 0, izin: 0, alfa: 0 }
     );
 
-    const drawHeader = (sectionTitle = 'REKAPITULASI ABSENSI SISWA') => {
-      doc.setFillColor(15, 23, 42);
-      doc.rect(0, 0, pageWidth, 25, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.text(sectionTitle, marginX, 10);
+    const waliKelasName = user?.role === 'teacher' ? user.name : '-';
+    const printedDate = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    const cityLabel = (school?.address || '').split(',').map((item) => item.trim()).filter(Boolean).slice(-2, -1)[0] || 'Sekolah';
+    let reportLogoDataUrl: string | null = null;
+
+    if (reportLogoUrl) {
+      try {
+        reportLogoDataUrl = await getImageDataUrl(reportLogoUrl);
+      } catch {
+        reportLogoDataUrl = null;
+      }
+    }
+
+    const drawSchoolLetterhead = () => {
+      doc.setTextColor(15, 23, 42);
+      doc.setDrawColor(15, 23, 42);
+      doc.setLineWidth(0.6);
+      if (reportLogoDataUrl) {
+        const imageType = reportLogoDataUrl.includes('image/png') ? 'PNG' : 'JPEG';
+        doc.addImage(reportLogoDataUrl, imageType, 14, 7, 23, 23);
+      } else {
+        doc.circle(25, 18, 10, 'S');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.text('SP', 25, 21, { align: 'center' });
+      }
+      doc.setFontSize(18);
+      doc.text((school?.name || 'NAMA SEKOLAH').toUpperCase(), 42, 14);
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
-      doc.text(school?.name || 'Administrasi Guru Premium', marginX, 16);
-      doc.text(school?.address || 'Sistem Absensi Digital', marginX, 21);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Absensi Premium', pageWidth - marginX, 10, { align: 'right' });
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Dicetak: ${printedAt}`, pageWidth - marginX, 16, { align: 'right' });
+      doc.text(school?.address || 'Alamat sekolah belum tersedia', 42, 20);
+      doc.text('Sistem Absensi Digital | Administrasi Guru Premium', 42, 25);
+      doc.setLineWidth(0.7);
+      doc.line(marginX, 32, pageWidth - marginX, 32);
+      doc.setLineWidth(0.25);
+      doc.line(marginX, 34, pageWidth - marginX, 34);
     };
 
-    const drawFooter = () => {
+    const drawReportTitle = (title: string, subtitle: string) => {
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(15);
+      doc.text(title, pageWidth / 2, 45, { align: 'center' });
+      doc.setFontSize(12);
+      doc.text(subtitle.toUpperCase(), pageWidth / 2, 52, { align: 'center' });
+    };
+
+    const drawPdfPageNumbers = () => {
       const pageCount = doc.getNumberOfPages();
       for (let page = 1; page <= pageCount; page += 1) {
         doc.setPage(page);
         doc.setTextColor(100, 116, 139);
         doc.setFontSize(8);
         doc.text(`Halaman ${page} dari ${pageCount}`, pageWidth - marginX, pageHeight - 6, { align: 'right' });
-        doc.text('Keterangan: H=Hadir, S=Sakit, I=Izin, A=Alfa, L=Libur nasional/cuti bersama/akhir pekan, -=Tidak ada data', marginX, pageHeight - 6);
       }
     };
 
-    drawHeader();
+    const drawReportInfo = (startY: number, periodCaption: string, periodValue: string) => {
+      const infoRows = [
+        ['Kelas', selectedClassName],
+        ['Wali Kelas', waliKelasName],
+        ['Jumlah Siswa', `${rows.length} Siswa`],
+        [periodCaption, periodValue],
+      ];
 
-    doc.setTextColor(15, 23, 42);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('Informasi Laporan', marginX, 34);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text(`Periode: ${periodLabel}`, marginX, 41);
-    doc.text(`Kelas: ${selectedClassName}`, marginX, 47);
-    doc.text(`Jumlah siswa: ${rows.length} | Hari efektif: ${effectiveDays} | Hari libur/cuti: ${nonAttendanceDays}`, marginX, 53);
+      doc.setFontSize(10);
+      doc.setTextColor(15, 23, 42);
+      infoRows.forEach((item, index) => {
+        const y = startY + index * 6;
+        doc.setFont('helvetica', 'normal');
+        doc.text(item[0], marginX, y);
+        doc.text(':', marginX + 33, y);
+        doc.setFont('helvetica', 'bold');
+        doc.text(item[1], marginX + 38, y);
+      });
+    };
 
-    const summaryY = 32;
-    const summaryCards = [
-      { label: 'Hadir', value: totals.hadir, color: [5, 150, 105] },
-      { label: 'Sakit', value: totals.sakit, color: [217, 119, 6] },
-      { label: 'Izin', value: totals.izin, color: [37, 99, 235] },
-      { label: 'Alfa', value: totals.alfa, color: [225, 29, 72] },
-    ];
-    summaryCards.forEach((item, index) => {
-      const x = 137 + index * 37;
-      doc.setFillColor(248, 250, 252);
-      doc.setDrawColor(226, 232, 240);
-      doc.roundedRect(x, summaryY, 31, 20, 2, 2, 'FD');
-      doc.setTextColor(item.color[0], item.color[1], item.color[2]);
+    const drawLegendAndSignatures = (startY: number, includeLibur = true) => {
+      if (startY > pageHeight - 48) {
+        doc.addPage();
+        drawSchoolLetterhead();
+        startY = 44;
+      }
+
+      const safeY = startY;
+      doc.setDrawColor(100, 116, 139);
+      doc.setLineWidth(0.2);
+      doc.rect(marginX, safeY, 74, 34);
+      doc.setTextColor(15, 23, 42);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(13);
-      doc.text(String(item.value), x + 15.5, summaryY + 9, { align: 'center' });
-      doc.setTextColor(71, 85, 105);
-      doc.setFontSize(8);
-      doc.text(item.label.toUpperCase(), x + 15.5, summaryY + 16, { align: 'center' });
-    });
+      doc.setFontSize(9);
+      doc.text('Keterangan:', marginX + 3, safeY + 6);
+      const legends = [
+        ['H', 'Hadir', [22, 101, 52]],
+        ['A', 'Alfa', [185, 28, 28]],
+        ['S', 'Sakit', [217, 119, 6]],
+        ['I', 'Izin', [37, 99, 235]],
+        ...(includeLibur
+          ? [
+              ['L', 'Libur / Cuti Bersama', [185, 28, 28]],
+              ['-', 'Tidak Ada Data', [100, 116, 139]],
+            ] as const
+          : []),
+      ] as Array<readonly [string, string, readonly [number, number, number]]>;
 
-    autoTable(doc, {
-      startY: 62,
-      head: [['No', 'Nama Siswa', 'NISN', 'Kelas', 'Hadir', 'Sakit', 'Izin', 'Alfa', '% Hadir']],
-      body: rows.map((row) => {
+      legends.forEach((item, index) => {
+        const y = safeY + 12 + index * 4.2;
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(item[2][0], item[2][1], item[2][2]);
+        doc.text(item[0], marginX + 3, y);
+        doc.setTextColor(15, 23, 42);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`: ${item[1]}`, marginX + 10, y);
+      });
+
+      const leftX = pageWidth - 150;
+      const rightX = pageWidth - 75;
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Mengetahui,', leftX, safeY + 8, { align: 'center' });
+      doc.text('Kepala Sekolah', leftX, safeY + 14, { align: 'center' });
+      doc.text(`${cityLabel}, ${printedDate}`, rightX, safeY + 8, { align: 'center' });
+      doc.text('Wali Kelas', rightX, safeY + 14, { align: 'center' });
+      doc.setDrawColor(148, 163, 184);
+      doc.line(leftX - 22, safeY + 27, leftX + 22, safeY + 27);
+      doc.line(rightX - 22, safeY + 27, rightX + 22, safeY + 27);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Kepala Sekolah', leftX, safeY + 32, { align: 'center' });
+      doc.text(waliKelasName === '-' ? 'Wali Kelas' : waliKelasName, rightX, safeY + 32, { align: 'center' });
+    };
+
+    const getAttendanceQuality = (percentage: number) => {
+      if (percentage >= 90) return 'Baik Sekali';
+      if (percentage >= 80) return 'Baik';
+      if (percentage >= 70) return 'Cukup';
+      return 'Perlu Pembinaan';
+    };
+
+    const getSummaryBody = () => rows.map((row) => {
         const recordedTotal = row.hadir + row.sakit + row.izin + row.alfa;
         const percentage = recordedTotal > 0 ? Math.round((row.hadir / recordedTotal) * 100) : 0;
         return [
@@ -1795,103 +1934,182 @@ export default function App() {
           String(row.alfa),
           `${percentage}%`,
         ];
-      }),
-      theme: 'grid',
-      styles: {
-        fontSize: 8,
-        cellPadding: 1.8,
-        lineColor: [226, 232, 240],
-        lineWidth: 0.1,
-      },
-      headStyles: {
-        fillColor: [79, 70, 229],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-      },
-      alternateRowStyles: {
-        fillColor: [248, 250, 252],
-      },
-      columnStyles: {
-        0: { halign: 'center', cellWidth: 10 },
-        1: { cellWidth: 58 },
-        2: { cellWidth: 26 },
-        3: { cellWidth: 28 },
-        4: { halign: 'center' },
-        5: { halign: 'center' },
-        6: { halign: 'center' },
-        7: { halign: 'center' },
-        8: { halign: 'center' },
-      },
-    });
+      });
 
-    const chunkSize = 16;
-    for (let start = 0; start < days.length; start += chunkSize) {
-      const chunkDays = days.slice(start, start + chunkSize);
-      doc.addPage();
-      drawHeader(`DETAIL ABSENSI PER TANGGAL (${start + 1}-${start + chunkDays.length} DARI ${days.length})`);
-      doc.setTextColor(15, 23, 42);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.text(`${selectedClassName} | ${periodLabel}`, marginX, 33);
+    if (attendancePeriodMode === 'month') {
+      drawSchoolLetterhead();
+      drawReportTitle('REKAP ABSENSI SISWA (HARIAN)', periodLabel);
+      drawReportInfo(62, 'Bulan / Tahun', periodLabel);
 
       autoTable(doc, {
-        startY: 39,
-        head: [[
-          'No',
-          'Nama Siswa',
-          ...chunkDays.map((day) => `${day.day}\n${day.monthShort}\n${day.weekdayLabel}`),
-          ...(start + chunkDays.length >= days.length ? ['H', 'S', 'I', 'A'] : []),
-        ]],
+        startY: 86,
+        margin: { left: marginX, right: marginX },
+        head: [
+          [
+            { content: 'No', rowSpan: 2, styles: { valign: 'middle' } },
+            { content: 'Nama Siswa', rowSpan: 2, styles: { valign: 'middle' } },
+            { content: 'Tanggal', colSpan: days.length, styles: { halign: 'center' } },
+            { content: 'Total\nHadir', rowSpan: 2, styles: { valign: 'middle' } },
+          ],
+          days.map((day) => `${day.day}\n${day.weekdayLabel}`),
+        ],
         body: rows.map((row) => [
           String(row.index),
           row.student.name,
-          ...chunkDays.map((day) => {
-            const dayIndex = days.findIndex((item) => item.date === day.date);
-            return day.isNonAttendanceDay ? 'L' : statusCode(row.dayStatuses[dayIndex]);
-          }),
-          ...(start + chunkDays.length >= days.length
-            ? [String(row.hadir), String(row.sakit), String(row.izin), String(row.alfa)]
-            : []),
+          ...days.map((day, dayIndex) => day.isNonAttendanceDay ? 'L' : statusCode(row.dayStatuses[dayIndex])),
+          String(row.hadir),
         ]),
         theme: 'grid',
         styles: {
           fontSize: 7,
-          cellPadding: 1.4,
-          minCellHeight: 6,
-          lineColor: [226, 232, 240],
-          lineWidth: 0.1,
+          cellPadding: 1.2,
+          lineColor: [71, 85, 105],
+          lineWidth: 0.15,
           valign: 'middle',
         },
         headStyles: {
-          fillColor: [30, 41, 59],
-          textColor: [255, 255, 255],
+          fillColor: [248, 250, 252],
+          textColor: [15, 23, 42],
           fontStyle: 'bold',
           halign: 'center',
         },
         alternateRowStyles: {
-          fillColor: [248, 250, 252],
+          fillColor: [252, 252, 253],
         },
         columnStyles: {
-          0: { halign: 'center', cellWidth: 9 },
-          1: { cellWidth: 52 },
+          0: { cellWidth: 9, halign: 'center' },
+          1: { cellWidth: 45 },
+          [days.length + 2]: { cellWidth: 13, halign: 'center', fontStyle: 'bold' },
         },
         didParseCell: (data) => {
-          if (data.section !== 'body' || data.column.index < 2) return;
+          if (data.section === 'head' && data.row.index === 1) {
+            const day = days[data.column.index];
+            if (day?.isNonAttendanceDay) {
+              data.cell.styles.textColor = [185, 28, 28];
+              data.cell.styles.fillColor = [254, 242, 242];
+            }
+          }
+
+          if (data.section !== 'body' || data.column.index < 2 || data.column.index > days.length + 1) return;
           const value = String(data.cell.raw || '');
           data.cell.styles.halign = 'center';
           data.cell.styles.fontStyle = 'bold';
-          if (value === 'H') data.cell.styles.textColor = [5, 150, 105];
+          if (value === 'H') data.cell.styles.textColor = [22, 101, 52];
           if (value === 'S') data.cell.styles.textColor = [217, 119, 6];
           if (value === 'I') data.cell.styles.textColor = [37, 99, 235];
-          if (value === 'A') data.cell.styles.textColor = [225, 29, 72];
-          if (value === 'L') data.cell.styles.textColor = [100, 116, 139];
-          if (value === '-') data.cell.styles.textColor = [148, 163, 184];
+          if (value === 'A') data.cell.styles.textColor = [185, 28, 28];
+          if (value === 'L') {
+            data.cell.styles.textColor = [185, 28, 28];
+            data.cell.styles.fillColor = [254, 242, 242];
+          }
+          if (value === '-') data.cell.styles.textColor = [100, 116, 139];
         },
       });
+
+      drawLegendAndSignatures((doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 8 : 155);
+      drawPdfPageNumbers();
+      doc.save(`rekap_absensi_bulanan_${filePeriod}.pdf`);
+      return;
     }
 
-    drawFooter();
-    doc.save(`rekap_absensi_${filePeriod}.pdf`);
+    const rangeStartLabel = days[0] ? getDateLabel(days[0].date) : '-';
+    const rangeEndLabel = days[days.length - 1] ? getDateLabel(days[days.length - 1].date) : '-';
+    const rangeCaption = `${rangeStartLabel} s.d. ${rangeEndLabel}`;
+    const averagePercentage = rows.length > 0
+      ? Math.round(
+          rows.reduce((sum, row) => {
+            const recordedTotal = row.hadir + row.sakit + row.izin + row.alfa;
+            return sum + (recordedTotal > 0 ? (row.hadir / recordedTotal) * 100 : 0);
+          }, 0) / rows.length
+        )
+      : 0;
+
+    drawSchoolLetterhead();
+    drawReportTitle('REKAP ABSENSI SISWA (PER SEMESTER)', `Periode ${rangeCaption}`);
+    drawReportInfo(62, 'Periode', rangeCaption);
+
+    autoTable(doc, {
+      startY: 95,
+      margin: { left: marginX, right: marginX },
+      head: [
+        [
+          { content: 'No', rowSpan: 2, styles: { valign: 'middle' } },
+          { content: 'Nama Siswa', rowSpan: 2, styles: { valign: 'middle' } },
+          { content: 'Jumlah Kehadiran', colSpan: 4, styles: { halign: 'center' } },
+          { content: 'Total Hari\n(Aktif Sekolah)', rowSpan: 2, styles: { valign: 'middle' } },
+          { content: 'Persentase\nKehadiran (%)', rowSpan: 2, styles: { valign: 'middle' } },
+          { content: 'Keterangan', rowSpan: 2, styles: { valign: 'middle' } },
+        ],
+        ['Hadir', 'Alfa', 'Sakit', 'Izin'],
+      ],
+      body: rows.map((row) => {
+        const recordedTotal = row.hadir + row.sakit + row.izin + row.alfa;
+        const percentage = recordedTotal > 0 ? Math.round((row.hadir / recordedTotal) * 100) : 0;
+        return [
+          String(row.index),
+          row.student.name,
+          String(row.hadir),
+          String(row.alfa),
+          String(row.sakit),
+          String(row.izin),
+          String(recordedTotal),
+          `${percentage}%`,
+          getAttendanceQuality(percentage),
+        ];
+      }),
+      foot: [[
+        { content: 'TOTAL / RATA-RATA', colSpan: 2, styles: { halign: 'center' } },
+        String(totals.hadir),
+        String(totals.alfa),
+        String(totals.sakit),
+        String(totals.izin),
+        String(totals.hadir + totals.alfa + totals.sakit + totals.izin),
+        `${averagePercentage}%`,
+        '-',
+      ]],
+      theme: 'grid',
+      styles: {
+        fontSize: 8,
+        cellPadding: 1.7,
+        lineColor: [71, 85, 105],
+        lineWidth: 0.15,
+        valign: 'middle',
+      },
+      headStyles: {
+        fillColor: [239, 246, 255],
+        textColor: [15, 23, 42],
+        fontStyle: 'bold',
+        halign: 'center',
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+      footStyles: {
+        fillColor: [239, 246, 255],
+        textColor: [15, 23, 42],
+        fontStyle: 'bold',
+        halign: 'center',
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 11 },
+        1: { cellWidth: 64 },
+        2: { halign: 'center' },
+        3: { halign: 'center' },
+        4: { halign: 'center' },
+        5: { halign: 'center' },
+        6: { halign: 'center' },
+        7: { halign: 'center' },
+        8: { halign: 'center', cellWidth: 33 },
+      },
+    });
+
+    doc.setTextColor(71, 85, 105);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'italic');
+    doc.text('Catatan: Total Hari (Aktif Sekolah) adalah jumlah hari efektif dalam periode yang dipilih.', marginX, pageHeight - 12);
+    drawLegendAndSignatures((doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 8 : 160, false);
+    drawPdfPageNumbers();
+    doc.save(`rekap_absensi_semester_${filePeriod}.pdf`);
   };
 
   const renderMonthlyAttendanceView = () => {
@@ -1926,14 +2144,59 @@ export default function App() {
               </p>
             </div>
 
-            <button
-              onClick={handleDownloadAttendancePdf}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl transition shadow-sm"
-              id="btn-download-monthly-attendance"
-            >
-              <Download className="w-4 h-4" />
-              Unduh PDF
-            </button>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <input
+                ref={reportLogoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleUploadReportLogo}
+                id="report-logo-upload-input"
+              />
+              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="h-10 w-10 rounded-lg border border-slate-200 bg-white flex items-center justify-center overflow-hidden">
+                  {reportLogoUrl ? (
+                    <img src={reportLogoUrl} alt="Logo laporan" className="h-full w-full object-contain" />
+                  ) : (
+                    <span className="text-xs font-black text-slate-500">SP</span>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-bold uppercase text-slate-400">Logo PDF</div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => reportLogoInputRef.current?.click()}
+                      disabled={reportLogoUploadLoading}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 hover:text-indigo-900 disabled:text-slate-400"
+                      id="btn-upload-report-logo"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      {reportLogoUploadLoading ? 'Mengunggah...' : reportLogoUrl ? 'Ganti' : 'Upload'}
+                    </button>
+                    {reportLogoUrl && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveReportLogo}
+                        className="text-xs font-bold text-rose-600 hover:text-rose-700"
+                        id="btn-remove-report-logo"
+                      >
+                        Hapus
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={handleDownloadAttendancePdf}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl transition shadow-sm"
+                id="btn-download-monthly-attendance"
+              >
+                <Download className="w-4 h-4" />
+                Unduh PDF
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 items-end">
