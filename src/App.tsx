@@ -52,7 +52,11 @@ import {
   ShieldCheck,
   Sparkles,
   TimerReset,
-  FileSpreadsheet
+  FileSpreadsheet,
+  MessageCircle,
+  Banknote,
+  Star,
+  Tags
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
@@ -69,7 +73,9 @@ import {
   SchoolWithStats,
   SubscriptionPlan,
   SubscriptionStatus,
-  AttendanceStatus
+  AttendanceStatus,
+  PricingPlan,
+  SiteSettings
 } from './types';
 
 import QRScanner from './components/QRScanner';
@@ -167,7 +173,7 @@ export default function App() {
   const routeSegment = location.pathname.split('/')[1] || '';
   const routeTab = routeSegment || 'dashboard';
   const activeTab = useMemo(() => {
-    const validTabs = new Set(['dashboard', 'schools', 'teachers', 'attendance', 'classes', 'students', 'scan', 'academic', 'password']);
+    const validTabs = new Set(['dashboard', 'schools', 'pricing', 'teachers', 'attendance', 'classes', 'students', 'scan', 'academic', 'password']);
     return validTabs.has(routeTab) ? routeTab : 'dashboard';
   }, [routeTab]);
 
@@ -194,6 +200,8 @@ export default function App() {
   const [students, setStudents] = useState<StudentWithClass[]>([]);
   const [attendances, setAttendances] = useState<AttendanceWithDetails[]>([]);
   const [historyToday, setHistoryToday] = useState<AttendanceWithDetails[]>([]);
+  const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>([]);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>({ whatsappNumber: '', whatsappMessageTemplate: '' });
 
   // --- GLOBAL LOADING STATES ---
   const [dataLoading, setDataLoading] = useState<boolean>(false);
@@ -227,6 +235,23 @@ export default function App() {
     setIsIframe(window.self !== window.top);
   }, []);
 
+  // Public pricing & contact data used by the landing page (no auth required)
+  useEffect(() => {
+    const loadPublicLandingData = async () => {
+      try {
+        const [plansRes, settingsRes] = await Promise.all([
+          fetch('/api/public/pricing-plans'),
+          fetch('/api/public/settings'),
+        ]);
+        if (plansRes.ok) setPricingPlans(await plansRes.json());
+        if (settingsRes.ok) setSiteSettings(await settingsRes.json());
+      } catch (err) {
+        console.error('Failed to load public pricing/settings:', err);
+      }
+    };
+    loadPublicLandingData();
+  }, []);
+
   // --- FEEDBACK TOAST / IN-APP ALERTS ---
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'warning' | 'error'; text: string } | null>(null);
 
@@ -234,6 +259,10 @@ export default function App() {
   const [isAddSchoolModalOpen, setIsAddSchoolModalOpen] = useState<boolean>(false);
   const [isEditSchoolModalOpen, setIsEditSchoolModalOpen] = useState<boolean>(false);
   const [selectedSchool, setSelectedSchool] = useState<SchoolWithStats | null>(null);
+
+  const [isAddPlanModalOpen, setIsAddPlanModalOpen] = useState<boolean>(false);
+  const [isEditPlanModalOpen, setIsEditPlanModalOpen] = useState<boolean>(false);
+  const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null);
 
   const [isAddClassModalOpen, setIsAddClassModalOpen] = useState<boolean>(false);
   const [isEditClassModalOpen, setIsEditClassModalOpen] = useState<boolean>(false);
@@ -269,6 +298,21 @@ export default function App() {
   const [schoolAdminName, setSchoolAdminName] = useState<string>('');
   const [createdSchoolAdmin, setCreatedSchoolAdmin] = useState<{ schoolName: string; adminName: string; username: string; password: string } | null>(null);
   const [schoolPasswordReset, setSchoolPasswordReset] = useState<{ schoolName: string; adminName: string; username: string; password: string } | null>(null);
+
+  // Pricing plan form (CMS)
+  const [planName, setPlanName] = useState<string>('');
+  const [planPrice, setPlanPrice] = useState<string>('');
+  const [planPeriod, setPlanPeriod] = useState<string>('');
+  const [planDescription, setPlanDescription] = useState<string>('');
+  const [planFeaturesText, setPlanFeaturesText] = useState<string>('');
+  const [planIsHighlighted, setPlanIsHighlighted] = useState<boolean>(false);
+  const [planIsActive, setPlanIsActive] = useState<boolean>(true);
+  const [planSortOrder, setPlanSortOrder] = useState<string>('0');
+
+  // Site settings form (CMS)
+  const [waNumberInput, setWaNumberInput] = useState<string>('');
+  const [waMessageInput, setWaMessageInput] = useState<string>('');
+  const [settingsSaveLoading, setSettingsSaveLoading] = useState<boolean>(false);
 
   // Classes form
   const [classNameInput, setClassNameInput] = useState<string>('');
@@ -576,6 +620,19 @@ export default function App() {
           const data = await res.json();
           setSchools(data);
         }
+
+        const plansRes = await fetch('/api/superadmin/pricing-plans', { headers: getHeaders() });
+        if (plansRes.ok) {
+          setPricingPlans(await plansRes.json());
+        }
+
+        const settingsRes = await fetch('/api/superadmin/settings', { headers: getHeaders() });
+        if (settingsRes.ok) {
+          const settingsData = await settingsRes.json();
+          setSiteSettings(settingsData);
+          setWaNumberInput(settingsData.whatsappNumber || '');
+          setWaMessageInput(settingsData.whatsappMessageTemplate || '');
+        }
       }
 
       // 2. School Admin & Teacher View Loading
@@ -750,6 +807,158 @@ export default function App() {
       showToast('Koneksi terputus.', 'error');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  // --- CRUD PRICING PLANS & SETTINGS (Super Admin CMS) ---
+  const parseFeaturesText = (text: string): string[] =>
+    text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+  const openAddPlanModal = () => {
+    setPlanName('');
+    setPlanPrice('');
+    setPlanPeriod('');
+    setPlanDescription('');
+    setPlanFeaturesText('');
+    setPlanIsHighlighted(false);
+    setPlanIsActive(true);
+    setPlanSortOrder(String(pricingPlans.length + 1));
+    setIsAddPlanModalOpen(true);
+  };
+
+  const openEditPlanModal = (plan: PricingPlan) => {
+    setSelectedPlan(plan);
+    setPlanName(plan.name);
+    setPlanPrice(plan.price);
+    setPlanPeriod(plan.period);
+    setPlanDescription(plan.description);
+    setPlanFeaturesText(plan.features.join('\n'));
+    setPlanIsHighlighted(plan.isHighlighted);
+    setPlanIsActive(plan.isActive);
+    setPlanSortOrder(String(plan.sortOrder));
+    setIsEditPlanModalOpen(true);
+  };
+
+  const handleAddPricingPlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/superadmin/pricing-plans', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          name: planName,
+          price: planPrice,
+          period: planPeriod,
+          description: planDescription,
+          features: parseFeaturesText(planFeaturesText),
+          isHighlighted: planIsHighlighted,
+          isActive: planIsActive,
+          sortOrder: Number(planSortOrder) || 0,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`Paket ${planName} berhasil ditambahkan.`);
+        setIsAddPlanModalOpen(false);
+        loadContextData();
+      } else {
+        showToast(data.error || 'Gagal menambahkan paket.', 'error');
+      }
+    } catch (e) {
+      showToast('Terjadi kesalahan koneksi.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleEditPricingPlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPlan) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/superadmin/pricing-plans/${selectedPlan.id}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          name: planName,
+          price: planPrice,
+          period: planPeriod,
+          description: planDescription,
+          features: parseFeaturesText(planFeaturesText),
+          isHighlighted: planIsHighlighted,
+          isActive: planIsActive,
+          sortOrder: Number(planSortOrder) || 0,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`Paket ${planName} berhasil diperbarui.`);
+        setIsEditPlanModalOpen(false);
+        loadContextData();
+      } else {
+        showToast(data.error || 'Gagal memperbarui paket.', 'error');
+      }
+    } catch (e) {
+      showToast('Koneksi terputus.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeletePricingPlan = async (planId: string, planName: string) => {
+    if (!window.confirm(`Hapus paket "${planName}"? Tindakan ini tidak dapat dibatalkan.`)) {
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/superadmin/pricing-plans/${planId}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+      });
+
+      if (res.ok) {
+        showToast('Paket berhasil dihapus.');
+        loadContextData();
+      } else {
+        showToast('Gagal menghapus paket.', 'error');
+      }
+    } catch (e) {
+      showToast('Koneksi terputus.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSaveSiteSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSettingsSaveLoading(true);
+    try {
+      const res = await fetch('/api/superadmin/settings', {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          whatsappNumber: waNumberInput,
+          whatsappMessageTemplate: waMessageInput,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setSiteSettings(data);
+        showToast('Kontak WhatsApp berhasil diperbarui.');
+      } else {
+        showToast(data.error || 'Gagal menyimpan pengaturan.', 'error');
+      }
+    } catch (e) {
+      showToast('Koneksi terputus.', 'error');
+    } finally {
+      setSettingsSaveLoading(false);
     }
   };
 
@@ -2542,6 +2751,7 @@ export default function App() {
       super_admin: [
         { id: 'dashboard', label: 'Dashboard', icon: Shield },
         { id: 'schools', label: 'Kelola Sekolah', icon: School },
+        { id: 'pricing', label: 'Paket & Kontak', icon: Tags },
         { id: 'password', label: 'Ganti Password', icon: Key },
       ],
       admin: [
@@ -2641,6 +2851,7 @@ export default function App() {
     const pageTitles: Record<string, string> = {
       dashboard: user.role === 'super_admin' ? 'Ringkasan Sistem' : user.role === 'admin' ? 'Ringkasan Sekolah' : 'Ringkasan Guru',
       schools: 'Kelola Sekolah',
+      pricing: 'Paket & Kontak',
       teachers: 'Data Guru',
       attendance: 'Laporan Absensi',
       classes: 'Data Kelas',
@@ -3044,6 +3255,160 @@ export default function App() {
                 </p>
               </div>
             </div>
+          </section>
+        </aside>
+      </div>
+    );
+  };
+
+  // 3b. Super Admin: Pricing Plans & WhatsApp Contact CMS
+  const renderPricingSettingsView = () => {
+    const sortedPlans = [...pricingPlans].sort((a, b) => a.sortOrder - b.sortOrder);
+
+    return (
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <section className="xl:col-span-2 bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold font-display text-slate-900">Paket Berlangganan</h2>
+              <p className="text-xs text-slate-500 mt-1">Paket ini tampil di halaman depan (landing page) sistem.</p>
+            </div>
+            <button
+              onClick={openAddPlanModal}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg text-sm transition"
+              id="btn-add-plan"
+            >
+              <Plus className="w-4 h-4" />
+              Paket Baru
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                  <th className="px-5 py-3">Paket</th>
+                  <th className="px-5 py-3">Harga</th>
+                  <th className="px-5 py-3">Urutan</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-sm text-slate-600">
+                {sortedPlans.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-12 text-slate-400">
+                      Belum ada paket berlangganan. Tambahkan paket pertama Anda.
+                    </td>
+                  </tr>
+                ) : (
+                  sortedPlans.map((plan) => (
+                    <tr key={plan.id} className="hover:bg-slate-50/80 transition">
+                      <td className="px-5 py-4 min-w-[220px]">
+                        <div className="flex items-center gap-2">
+                          <div className="font-bold text-slate-900 font-display">{plan.name}</div>
+                          {plan.isHighlighted && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold uppercase">
+                              <Star className="w-3 h-3" /> Unggulan
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1 max-w-[320px]">{plan.description}</div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="font-bold text-slate-900">Rp{plan.price}</div>
+                        <div className="text-xs text-slate-500">{plan.period}</div>
+                      </td>
+                      <td className="px-5 py-4 text-sm font-semibold text-slate-700">{plan.sortOrder}</td>
+                      <td className="px-5 py-4">
+                        <span className={`px-2.5 py-1 rounded-md text-xs font-bold inline-flex items-center gap-1.5 ${plan.isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${plan.isActive ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                          {plan.isActive ? 'Tayang' : 'Disembunyikan'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            onClick={() => openEditPlanModal(plan)}
+                            className="p-2 text-slate-500 hover:text-indigo-600 rounded-lg bg-slate-50 hover:bg-indigo-50 transition"
+                            id={`edit-plan-${plan.id}`}
+                            title="Edit paket"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeletePricingPlan(plan.id, plan.name)}
+                            className="p-2 text-slate-500 hover:text-rose-600 rounded-lg bg-slate-50 hover:bg-rose-50 transition"
+                            id={`delete-plan-${plan.id}`}
+                            title="Hapus paket"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <aside className="space-y-6">
+          <section className="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-bold font-display text-slate-900">Kontak WhatsApp</h3>
+                <p className="text-xs text-slate-500 mt-1">Nomor tujuan saat pengunjung memilih paket di landing page.</p>
+              </div>
+              <MessageCircle className="w-5 h-5 text-emerald-500" />
+            </div>
+            <form onSubmit={handleSaveSiteSettings} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-500 font-bold mb-1 uppercase">Nomor WhatsApp</label>
+                <input
+                  type="text"
+                  required
+                  value={waNumberInput}
+                  onChange={(e) => setWaNumberInput(e.target.value)}
+                  placeholder="Contoh: 6281234567890"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500"
+                  id="settings-wa-number"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">Gunakan format internasional tanpa tanda + atau spasi.</p>
+              </div>
+              <div>
+                <label className="block text-slate-500 font-bold mb-1 uppercase">Template Pesan</label>
+                <textarea
+                  value={waMessageInput}
+                  onChange={(e) => setWaMessageInput(e.target.value)}
+                  rows={3}
+                  placeholder="Halo, saya tertarik dengan paket {paket} Absensi Premium."
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500 resize-none"
+                  id="settings-wa-message"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">Gunakan <code className="font-mono">{'{paket}'}</code> untuk menyisipkan nama paket yang dipilih.</p>
+              </div>
+              <button
+                type="submit"
+                disabled={settingsSaveLoading}
+                className="w-full px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl disabled:bg-slate-200 transition"
+                id="settings-wa-submit"
+              >
+                {settingsSaveLoading ? 'Menyimpan...' : 'Simpan Kontak'}
+              </button>
+            </form>
+          </section>
+
+          <section className="bg-slate-900 text-white rounded-lg p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <Info className="w-4 h-4 text-indigo-300" />
+              <h3 className="font-bold text-sm">Cara Kerja</h3>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Hanya paket berstatus "Tayang" yang muncul di halaman depan. Saat pengunjung menekan tombol pilih paket,
+              mereka akan diarahkan ke WhatsApp nomor di atas dengan pesan otomatis yang sudah berisi nama paket.
+            </p>
           </section>
         </aside>
       </div>
@@ -4487,13 +4852,26 @@ export default function App() {
       ['Alfa', '1', 'rose'],
     ];
 
+    const activePlans = [...pricingPlans].filter((p) => p.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+
+    const handleChoosePlan = (plan: PricingPlan) => {
+      const rawNumber = siteSettings.whatsappNumber.replace(/[^0-9]/g, '');
+      if (!rawNumber) {
+        showToast('Nomor WhatsApp belum diatur. Silakan hubungi admin sistem.', 'error');
+        return;
+      }
+      const template = siteSettings.whatsappMessageTemplate || 'Halo, saya tertarik dengan paket {paket} Absensi Premium.';
+      const message = template.replace(/\{paket\}/g, plan.name);
+      window.open(`https://wa.me/${rawNumber}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+    };
+
     return (
       <div className="min-h-screen bg-slate-50 text-slate-700">
-        <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-lg">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="flex h-18 items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-md shadow-indigo-600/20">
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-500 flex items-center justify-center text-white font-black text-xl shadow-md shadow-indigo-600/25">
                   GP
                 </div>
                 <div>
@@ -4509,7 +4887,7 @@ export default function App() {
               <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-500">
                 <a href="#fitur" className="hover:text-slate-900 transition">Fitur</a>
                 <a href="#modul" className="hover:text-slate-900 transition">Modul</a>
-                <a href="#alur" className="hover:text-slate-900 transition">Alur</a>
+                <a href="#harga" className="hover:text-slate-900 transition">Harga</a>
                 <a href="#faq" className="hover:text-slate-900 transition">FAQ</a>
               </nav>
 
@@ -4534,17 +4912,25 @@ export default function App() {
         </header>
 
         <main>
-          <section className="bg-white border-b border-slate-200">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 lg:py-14">
-              <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] items-center">
-                <div className="space-y-6">
+          <section className="relative overflow-hidden bg-white border-b border-slate-200">
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className="absolute -top-32 -right-24 w-[28rem] h-[28rem] rounded-full bg-indigo-200/40 blur-3xl"></div>
+              <div className="absolute -bottom-40 -left-24 w-[24rem] h-[24rem] rounded-full bg-sky-200/40 blur-3xl"></div>
+            </div>
+
+            <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14 lg:py-20">
+              <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] items-center">
+                <div className="space-y-7">
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-indigo-100 bg-indigo-50 text-indigo-700 text-xs font-bold">
                     <Sparkles className="w-3.5 h-3.5" />
                     Absensi sekolah, QR, rekap, dan akademik dalam satu sistem
                   </div>
                   <div className="space-y-4">
-                    <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900 font-display">
-                      Absensi Premium
+                    <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-slate-900 font-display leading-[1.05]">
+                      Absensi Sekolah,
+                      <span className="block bg-gradient-to-r from-indigo-600 to-sky-500 bg-clip-text text-transparent">
+                        Rapi &amp; Modern.
+                      </span>
                     </h1>
                     <p className="max-w-2xl text-base sm:text-lg text-slate-600 leading-8">
                       Sistem administrasi sekolah untuk absensi digital, rekap bulanan, data guru dan siswa, serta
@@ -4555,16 +4941,16 @@ export default function App() {
                   <div className="flex flex-wrap items-center gap-3">
                     <button
                       onClick={() => navigate('/login')}
-                      className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition shadow-sm"
+                      className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/20"
                     >
                       Masuk ke Sistem
                       <ArrowRight className="w-4 h-4" />
                     </button>
                     <a
-                      href="#fitur"
+                      href="#harga"
                       className="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 transition"
                     >
-                      Lihat Fitur
+                      Lihat Harga
                       <ChevronRight className="w-4 h-4" />
                     </a>
                   </div>
@@ -4576,7 +4962,7 @@ export default function App() {
                       ['Rekap Bulan', 'Dinamis per kelas'],
                       ['Ekspor', 'CSV dan PDF'],
                     ].map(([title, desc]) => (
-                      <div key={title} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <div key={title} className="rounded-xl border border-slate-200 bg-white/70 backdrop-blur-sm p-4">
                         <div className="text-sm font-bold text-slate-900">{title}</div>
                         <div className="text-xs text-slate-500 mt-1 leading-5">{desc}</div>
                       </div>
@@ -4584,7 +4970,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-slate-900 p-5 shadow-xl shadow-slate-900/10">
+                <div className="rounded-3xl border border-slate-200 bg-slate-900 p-5 shadow-2xl shadow-slate-900/20">
                   <div className="rounded-2xl border border-slate-700 bg-slate-950 p-5 text-slate-100">
                     <div className="flex items-center justify-between mb-4">
                       <div>
@@ -4644,7 +5030,7 @@ export default function App() {
               {highlights.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <div key={item.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div key={item.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
                     <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4">
                       <Icon className="w-5 h-5" />
                     </div>
@@ -4678,12 +5064,86 @@ export default function App() {
             </div>
           </section>
 
+          <section id="harga" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+            <div className="text-center max-w-2xl mx-auto mb-10">
+              <div className="text-xs font-bold uppercase tracking-[0.22em] text-indigo-500">Harga</div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-display mt-2">Pilih paket yang sesuai kebutuhan sekolah</h2>
+              <p className="text-sm text-slate-600 mt-3 leading-7">
+                Klik salah satu paket untuk langsung terhubung dengan tim kami via WhatsApp.
+              </p>
+            </div>
+
+            {activePlans.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-400">
+                Paket berlangganan belum tersedia. Silakan hubungi Super Admin.
+              </div>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 items-stretch">
+                {activePlans.map((plan) => (
+                  <div
+                    key={plan.id}
+                    className={`relative flex flex-col rounded-3xl border p-7 transition-all ${
+                      plan.isHighlighted
+                        ? 'border-indigo-600 bg-slate-900 text-white shadow-2xl shadow-indigo-900/20 md:-translate-y-2'
+                        : 'border-slate-200 bg-white text-slate-700 shadow-sm hover:shadow-md hover:-translate-y-0.5'
+                    }`}
+                  >
+                    {plan.isHighlighted && (
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500 text-white text-[11px] font-bold uppercase tracking-wide shadow-md">
+                        <Star className="w-3 h-3" />
+                        Paling Populer
+                      </span>
+                    )}
+
+                    <div className={`text-xs font-bold uppercase tracking-[0.22em] ${plan.isHighlighted ? 'text-indigo-300' : 'text-indigo-500'}`}>
+                      {plan.name}
+                    </div>
+                    <p className={`text-sm mt-2 leading-6 ${plan.isHighlighted ? 'text-slate-300' : 'text-slate-500'}`}>
+                      {plan.description}
+                    </p>
+
+                    <div className="mt-6 flex items-baseline gap-1">
+                      <span className={`text-3xl font-extrabold font-display ${plan.isHighlighted ? 'text-white' : 'text-slate-900'}`}>
+                        Rp{plan.price}
+                      </span>
+                      <span className={`text-sm font-semibold ${plan.isHighlighted ? 'text-slate-400' : 'text-slate-400'}`}>
+                        {plan.period}
+                      </span>
+                    </div>
+
+                    <ul className="mt-6 space-y-3 flex-1">
+                      {plan.features.map((feature) => (
+                        <li key={feature} className="flex items-start gap-2.5 text-sm">
+                          <Check className={`w-4 h-4 mt-0.5 shrink-0 ${plan.isHighlighted ? 'text-indigo-300' : 'text-indigo-500'}`} />
+                          <span className={plan.isHighlighted ? 'text-slate-200' : 'text-slate-600'}>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <button
+                      onClick={() => handleChoosePlan(plan)}
+                      className={`mt-8 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold transition ${
+                        plan.isHighlighted
+                          ? 'bg-white text-indigo-700 hover:bg-indigo-50'
+                          : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                      }`}
+                      id={`choose-plan-${plan.id}`}
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      Pilih Paket Ini
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
           <section id="alur" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14">
             <div className="text-xs font-bold uppercase tracking-[0.22em] text-indigo-500">Alur Kerja</div>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-display mt-2">Alur yang singkat dan jelas</h2>
             <div className="grid gap-4 mt-6 lg:grid-cols-4">
               {workflows.map((item, index) => (
-                <div key={item} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div key={item} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
                   <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold">
                     {index + 1}
                   </div>
@@ -4722,7 +5182,7 @@ export default function App() {
           <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-16">
             <div className="rounded-3xl border border-indigo-100 bg-white shadow-sm overflow-hidden">
               <div className="grid lg:grid-cols-[1.1fr_0.9fr]">
-                <div className="bg-indigo-600 px-6 py-8 sm:px-10 sm:py-10 text-white">
+                <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 px-6 py-8 sm:px-10 sm:py-10 text-white">
                   <div className="text-xs font-bold uppercase tracking-[0.22em] text-indigo-100">Mulai</div>
                   <h2 className="text-2xl sm:text-3xl font-extrabold font-display mt-3 leading-tight">
                     Masuk ke Absensi Premium dan lihat dashboard sekolah Anda.
@@ -4739,10 +5199,10 @@ export default function App() {
                       <ArrowRight className="w-4 h-4" />
                     </button>
                     <a
-                      href="#fitur"
+                      href="#harga"
                       className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-white/20 bg-white/10 text-white font-semibold hover:bg-white/15 transition"
                     >
-                      Lihat Fitur
+                      Lihat Harga
                       <ChevronRight className="w-4 h-4" />
                     </a>
                   </div>
@@ -4812,6 +5272,7 @@ export default function App() {
     if (user?.role === 'super_admin') {
       if (activeTab === 'dashboard') return renderSuperAdminDashboard();
       if (activeTab === 'schools') return renderSchoolsView();
+      if (activeTab === 'pricing') return renderPricingSettingsView();
     }
 
     if (user?.role === 'admin') {
@@ -5223,6 +5684,243 @@ export default function App() {
                   disabled={actionLoading}
                   className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl disabled:bg-slate-200"
                   id="modal-edit-school-submit"
+                >
+                  {actionLoading ? 'Menyimpan...' : 'Simpan Perubahan'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 2b. Super Admin: Add Pricing Plan Modal */}
+      {isAddPlanModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-xl border border-slate-100 p-6 max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <h3 className="text-lg font-bold font-display text-slate-800">Tambah Paket Berlangganan</h3>
+              <button onClick={() => setIsAddPlanModalOpen(false)} className="text-slate-400 hover:text-slate-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddPricingPlan} className="flex-1 min-h-0 space-y-4 text-xs overflow-y-auto pr-1">
+              <div>
+                <label className="block text-slate-500 font-bold mb-1 uppercase">Nama Paket</label>
+                <input
+                  type="text"
+                  required
+                  value={planName}
+                  onChange={(e) => setPlanName(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500"
+                  placeholder="Contoh: Tahunan"
+                  id="modal-plan-name"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-500 font-bold mb-1 uppercase">Harga (Rp)</label>
+                  <input
+                    type="text"
+                    required
+                    value={planPrice}
+                    onChange={(e) => setPlanPrice(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500"
+                    placeholder="1.200.000"
+                    id="modal-plan-price"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-500 font-bold mb-1 uppercase">Periode</label>
+                  <input
+                    type="text"
+                    required
+                    value={planPeriod}
+                    onChange={(e) => setPlanPeriod(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500"
+                    placeholder="/ tahun"
+                    id="modal-plan-period"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-500 font-bold mb-1 uppercase">Deskripsi Singkat</label>
+                <input
+                  type="text"
+                  value={planDescription}
+                  onChange={(e) => setPlanDescription(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500"
+                  placeholder="Cocok untuk sekolah yang..."
+                  id="modal-plan-description"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-500 font-bold mb-1 uppercase">Fitur (satu per baris)</label>
+                <textarea
+                  value={planFeaturesText}
+                  onChange={(e) => setPlanFeaturesText(e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500 resize-none"
+                  placeholder={'Absensi QR & manual\nRekap bulanan\nDukungan WhatsApp'}
+                  id="modal-plan-features"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-500 font-bold mb-1 uppercase">Urutan Tampil</label>
+                  <input
+                    type="number"
+                    value={planSortOrder}
+                    onChange={(e) => setPlanSortOrder(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500"
+                    id="modal-plan-sort"
+                  />
+                </div>
+                <div className="flex flex-col gap-2 justify-end">
+                  <label className="inline-flex items-center gap-2 text-slate-600 font-semibold">
+                    <input type="checkbox" checked={planIsHighlighted} onChange={(e) => setPlanIsHighlighted(e.target.checked)} id="modal-plan-highlight" />
+                    Tandai unggulan
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-slate-600 font-semibold">
+                    <input type="checkbox" checked={planIsActive} onChange={(e) => setPlanIsActive(e.target.checked)} id="modal-plan-active" />
+                    Tayangkan di landing page
+                  </label>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100 pt-4 mt-6 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddPlanModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl disabled:bg-slate-200"
+                  id="modal-plan-submit"
+                >
+                  {actionLoading ? 'Menyimpan...' : 'Simpan Paket'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 2c. Super Admin: Edit Pricing Plan Modal */}
+      {isEditPlanModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-xl border border-slate-100 p-6 max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <h3 className="text-lg font-bold font-display text-slate-800">Edit Paket Berlangganan</h3>
+              <button onClick={() => setIsEditPlanModalOpen(false)} className="text-slate-400 hover:text-slate-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditPricingPlan} className="flex-1 min-h-0 space-y-4 text-xs overflow-y-auto pr-1">
+              <div>
+                <label className="block text-slate-500 font-bold mb-1 uppercase">Nama Paket</label>
+                <input
+                  type="text"
+                  required
+                  value={planName}
+                  onChange={(e) => setPlanName(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500"
+                  id="modal-edit-plan-name"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-500 font-bold mb-1 uppercase">Harga (Rp)</label>
+                  <input
+                    type="text"
+                    required
+                    value={planPrice}
+                    onChange={(e) => setPlanPrice(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500"
+                    id="modal-edit-plan-price"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-500 font-bold mb-1 uppercase">Periode</label>
+                  <input
+                    type="text"
+                    required
+                    value={planPeriod}
+                    onChange={(e) => setPlanPeriod(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500"
+                    id="modal-edit-plan-period"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-500 font-bold mb-1 uppercase">Deskripsi Singkat</label>
+                <input
+                  type="text"
+                  value={planDescription}
+                  onChange={(e) => setPlanDescription(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500"
+                  id="modal-edit-plan-description"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-500 font-bold mb-1 uppercase">Fitur (satu per baris)</label>
+                <textarea
+                  value={planFeaturesText}
+                  onChange={(e) => setPlanFeaturesText(e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500 resize-none"
+                  id="modal-edit-plan-features"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-500 font-bold mb-1 uppercase">Urutan Tampil</label>
+                  <input
+                    type="number"
+                    value={planSortOrder}
+                    onChange={(e) => setPlanSortOrder(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500"
+                    id="modal-edit-plan-sort"
+                  />
+                </div>
+                <div className="flex flex-col gap-2 justify-end">
+                  <label className="inline-flex items-center gap-2 text-slate-600 font-semibold">
+                    <input type="checkbox" checked={planIsHighlighted} onChange={(e) => setPlanIsHighlighted(e.target.checked)} id="modal-edit-plan-highlight" />
+                    Tandai unggulan
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-slate-600 font-semibold">
+                    <input type="checkbox" checked={planIsActive} onChange={(e) => setPlanIsActive(e.target.checked)} id="modal-edit-plan-active" />
+                    Tayangkan di landing page
+                  </label>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100 pt-4 mt-6 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditPlanModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl disabled:bg-slate-200"
+                  id="modal-edit-plan-submit"
                 >
                   {actionLoading ? 'Menyimpan...' : 'Simpan Perubahan'}
                 </button>
