@@ -25,9 +25,15 @@ export default function QRScanner({ students, onScanSuccess }: QRScannerProps) {
 
   const qrRegionId = "qr-reader";
   const html5QrcodeRef = useRef<Html5Qrcode | null>(null);
+  const isProcessingScanRef = useRef(false);
+  const recentScansRef = useRef<Map<string, number>>(new Map());
+  const statusResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Stop camera scanning
   const stopCamera = async () => {
+    isProcessingScanRef.current = false;
+    recentScansRef.current.clear();
+
     if (html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
       try {
         await html5QrcodeRef.current.stop();
@@ -55,18 +61,27 @@ export default function QRScanner({ students, onScanSuccess }: QRScannerProps) {
         { facingMode: "environment" },
         config,
         async (decodedText) => {
-          // Play successful beep sound or trigger success
+          const now = Date.now();
+          const lastScannedAt = recentScansRef.current.get(decodedText) || 0;
+
+          // The scanner can decode the same QR several times per second. Keep the
+          // camera running, but only process one request at a time and briefly
+          // ignore a QR that has just been recorded.
+          if (isProcessingScanRef.current || now - lastScannedAt < 5000) {
+            return;
+          }
+
+          isProcessingScanRef.current = true;
+          recentScansRef.current.set(decodedText, now);
+
+          for (const [code, scannedAt] of recentScansRef.current) {
+            if (now - scannedAt >= 5000) recentScansRef.current.delete(code);
+          }
+
           try {
-            setScanStatus('scanning');
-            // Stop camera on success to prevent double scan
-            await stopCamera();
-            setUseCamera(false);
-            
-            // Send to parent callback
             await processScannedCode(decodedText);
-          } catch (err: any) {
-            setScanStatus('error');
-            setScanMessage(err.message || "Gagal memproses QR Code.");
+          } finally {
+            isProcessingScanRef.current = false;
           }
         },
         (errorMessage) => {
@@ -99,7 +114,10 @@ export default function QRScanner({ students, onScanSuccess }: QRScannerProps) {
       }
 
       // Auto reset message after 3.5 seconds
-      setTimeout(() => {
+      if (statusResetTimeoutRef.current) {
+        clearTimeout(statusResetTimeoutRef.current);
+      }
+      statusResetTimeoutRef.current = setTimeout(() => {
         setScanStatus('idle');
         setScanMessage('');
       }, 3500);
@@ -118,6 +136,9 @@ export default function QRScanner({ students, onScanSuccess }: QRScannerProps) {
   // Cleanup camera on unmount
   useEffect(() => {
     return () => {
+      if (statusResetTimeoutRef.current) {
+        clearTimeout(statusResetTimeoutRef.current);
+      }
       stopCamera();
     };
   }, []);
@@ -153,6 +174,21 @@ export default function QRScanner({ students, onScanSuccess }: QRScannerProps) {
               <X className="w-4 h-4" />
               Matikan Kamera
             </button>
+
+            {scanMessage && scanStatus !== 'scanning' && (
+              <div
+                aria-live="polite"
+                className={`mt-3 max-w-[420px] rounded-xl border px-4 py-3 text-center text-sm ${
+                  scanStatus === 'success'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : scanStatus === 'warning'
+                      ? 'border-amber-200 bg-amber-50 text-amber-700'
+                      : 'border-rose-200 bg-rose-50 text-rose-700'
+                }`}
+              >
+                {scanMessage}
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center py-6 flex flex-col items-center">
