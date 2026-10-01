@@ -5,7 +5,8 @@
 
 export type SubscriptionPlan = 'bulanan' | 'tahunan' | 'selamanya';
 export type SubscriptionStatus = 'aktif' | 'nonaktif';
-export type UserRole = 'super_admin' | 'admin' | 'teacher';
+// 'parent' = Orang Tua/Siswa: login memakai kredensial siswa, hanya bisa melihat.
+export type UserRole = 'super_admin' | 'admin' | 'teacher' | 'parent';
 export type AttendanceStatus = 'hadir' | 'sakit' | 'izin' | 'alfa';
 export type AttendanceMethod = 'qr' | 'manual';
 
@@ -25,6 +26,7 @@ export interface User {
   role: UserRole;
   name: string;
   initialPassword?: string | null;
+  studentId?: string | null; // diisi untuk role 'parent'
   createdAt: string;
   // Password is excluded in client-facing types but present in DB
 }
@@ -137,6 +139,43 @@ export interface AssessmentWithDetails extends Assessment {
   academicYearName: string;
   className: string;
   subjectName: string;
+}
+
+export interface ParentGradeEntry {
+  assessmentId: string;
+  name: string;
+  date: string;
+  value: number | null;
+}
+
+export interface ParentSubjectGrade {
+  academicYearId: string;
+  academicYearName: string;
+  semester: 'ganjil' | 'genap';
+  subjectId: string;
+  subjectName: string;
+  teacherName: string;
+  nhWeight: number;
+  pasWeight: number;
+  nh: ParentGradeEntry[];
+  pas: ParentGradeEntry | null;
+  avgNh: number;
+  finalScore: number;
+}
+
+export type AttendanceCounts = Record<AttendanceStatus, number> & { total: number; attendanceRate: number };
+
+export interface ParentOverview {
+  student: { id: string; name: string; nisn: string; className: string; schoolName: string };
+  attendance: {
+    summary: AttendanceCounts;
+    records: Array<{ id: string; date: string; time: string; status: AttendanceStatus; method: AttendanceMethod; className: string }>;
+  };
+  grades: ParentSubjectGrade[];
+  progress: {
+    attendanceByMonth: Array<{ month: string } & AttendanceCounts>;
+    gradesBySemester: Array<{ academicYearName: string; semester: 'ganjil' | 'genap'; averageScore: number; subjectCount: number }>;
+  };
 }
 
 export interface PricingPlan {

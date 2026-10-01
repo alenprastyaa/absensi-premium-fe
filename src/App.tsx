@@ -75,13 +75,15 @@ import {
   SubscriptionStatus,
   AttendanceStatus,
   PricingPlan,
-  SiteSettings
+  SiteSettings,
+  ParentOverview
 } from './types';
 
 import QRScanner from './components/QRScanner';
 import StudentQRCard from './components/StudentQRCard';
 import AcademicModule from './components/AcademicModule';
 import SchoolAddressPicker from './components/SchoolAddressPicker';
+import ParentPortal, { ParentView } from './components/ParentPortal';
 import { apiFetch } from './lib/api';
 
 const NATIONAL_CALENDAR_DAYS: Record<string, { name: string; type: 'holiday' | 'joint_leave' }> = {
@@ -173,7 +175,7 @@ export default function App() {
   const routeSegment = location.pathname.split('/')[1] || '';
   const routeTab = routeSegment || 'dashboard';
   const activeTab = useMemo(() => {
-    const validTabs = new Set(['dashboard', 'schools', 'pricing', 'teachers', 'attendance', 'classes', 'students', 'scan', 'academic', 'password']);
+    const validTabs = new Set(['dashboard', 'schools', 'pricing', 'teachers', 'attendance', 'classes', 'students', 'scan', 'academic', 'password', 'grades', 'progress']);
     return validTabs.has(routeTab) ? routeTab : 'dashboard';
   }, [routeTab]);
 
@@ -202,6 +204,7 @@ export default function App() {
   const [historyToday, setHistoryToday] = useState<AttendanceWithDetails[]>([]);
   const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettings>({ whatsappNumber: '', whatsappMessageTemplate: '' });
+  const [parentOverview, setParentOverview] = useState<ParentOverview | null>(null);
 
   // --- GLOBAL LOADING STATES ---
   const [dataLoading, setDataLoading] = useState<boolean>(false);
@@ -563,6 +566,7 @@ export default function App() {
     setToken(null);
     setUser(null);
     setSchool(null);
+    setParentOverview(null);
     navigate('/login', { replace: true });
     showToast('Anda berhasil keluar dari sistem.', 'success');
   };
@@ -674,6 +678,14 @@ export default function App() {
         if (historyRes.ok) {
           const historyData = await historyRes.json();
           setHistoryToday(historyData);
+        }
+      }
+
+      // 5. Orang Tua/Siswa: satu endpoint read-only berisi absensi, nilai, perkembangan
+      if (user.role === 'parent') {
+        const overviewRes = await fetch('/api/parent/overview', { headers: getHeaders() });
+        if (overviewRes.ok) {
+          setParentOverview(await overviewRes.json());
         }
       }
     } catch (err) {
@@ -2767,6 +2779,13 @@ export default function App() {
         { id: 'attendance', label: 'Riwayat & Rekap', icon: Calendar },
         { id: 'academic', label: 'Akademik', icon: Award },
         { id: 'password', label: 'Ganti Password', icon: Key },
+      ],
+      // Tanpa menu Ganti Password: kredensial dikelola wali kelas.
+      parent: [
+        { id: 'dashboard', label: 'Ringkasan', icon: LayoutDashboard },
+        { id: 'grades', label: 'Nilai', icon: Award },
+        { id: 'attendance', label: 'Absensi', icon: Calendar },
+        { id: 'progress', label: 'Perkembangan', icon: BarChart3 },
       ]
     };
 
@@ -2797,7 +2816,7 @@ export default function App() {
             <div className="text-white font-bold text-sm mt-1 truncate">{user.name}</div>
             <div className="text-xs text-indigo-400 mt-0.5 font-medium flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 inline-block"></span>
-              {user.role === 'super_admin' ? 'Super Admin' : user.role === 'admin' ? 'Admin Sekolah' : 'Guru Kelas'}
+              {user.role === 'super_admin' ? 'Super Admin' : user.role === 'admin' ? 'Admin Sekolah' : user.role === 'parent' ? 'Orang Tua / Siswa' : 'Guru Kelas'}
             </div>
             {school && (
               <div className="mt-2 text-xs text-slate-400 truncate bg-slate-800/50 px-2 py-1 rounded border border-slate-800 flex items-center gap-1.5">
@@ -2849,11 +2868,13 @@ export default function App() {
   const renderNavbar = () => {
     if (!user) return null;
     const pageTitles: Record<string, string> = {
-      dashboard: user.role === 'super_admin' ? 'Ringkasan Sistem' : user.role === 'admin' ? 'Ringkasan Sekolah' : 'Ringkasan Guru',
+      dashboard: user.role === 'super_admin' ? 'Ringkasan Sistem' : user.role === 'admin' ? 'Ringkasan Sekolah' : user.role === 'parent' ? 'Ringkasan Siswa' : 'Ringkasan Guru',
       schools: 'Kelola Sekolah',
       pricing: 'Paket & Kontak',
       teachers: 'Data Guru',
-      attendance: 'Laporan Absensi',
+      attendance: user.role === 'parent' ? 'Riwayat Absensi' : 'Laporan Absensi',
+      grades: 'Nilai',
+      progress: 'Perkembangan',
       classes: 'Data Kelas',
       students: 'Data Siswa',
       scan: 'Scan QR Absensi',
@@ -5265,6 +5286,13 @@ export default function App() {
       );
     }
 
+    // Orang Tua/Siswa: portal hanya-lihat, tidak ada halaman lain (termasuk ganti password).
+    if (user?.role === 'parent') {
+      const parentViews: ParentView[] = ['dashboard', 'grades', 'attendance', 'progress'];
+      const view = parentViews.includes(activeTab as ParentView) ? (activeTab as ParentView) : 'dashboard';
+      return <ParentPortal view={view} data={parentOverview} loading={dataLoading} />;
+    }
+
     if (activeTab === 'password') {
       return renderPasswordChangeView();
     }
@@ -5395,6 +5423,9 @@ export default function App() {
                   {isLoggingIn ? 'Memvalidasi...' : 'Masuk ke Dashboard'}
                 </button>
               </div>
+              <p className="text-xs text-slate-500 text-center leading-relaxed">
+                Orang tua / siswa: masuk dengan username &amp; password siswa dari wali kelas.
+              </p>
             </form>
 
 
@@ -6508,6 +6539,10 @@ export default function App() {
                 <div className="text-sm font-mono font-semibold text-slate-800 break-all">{viewingStudent.initialPassword || '-'}</div>
               </div>
             </div>
+            <p className="mt-3 text-xs text-slate-500 flex items-start gap-1.5">
+              <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-indigo-500" />
+              Username &amp; password ini dipakai orang tua/siswa untuk login dan melihat nilai, absensi, dan perkembangan (hanya lihat, tidak bisa mengubah data).
+            </p>
 
             <div className="border-t border-slate-100 pt-4 mt-4 flex items-center justify-end gap-2">
               <button

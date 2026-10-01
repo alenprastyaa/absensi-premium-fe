@@ -20,6 +20,9 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/scan" element={<App />} />
         <Route path="/academic" element={<App />} />
         <Route path="/password" element={<App />} />
+        {/* Portal Orang Tua/Siswa */}
+        <Route path="/grades" element={<App />} />
+        <Route path="/progress" element={<App />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
