@@ -24,6 +24,21 @@ const formatDate = (date: string) =>
   new Date(`${date}T00:00:00`).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 const semesterLabel = (s: 'ganjil' | 'genap') => (s === 'ganjil' ? 'Ganjil' : 'Genap');
 
+// Predikat nilai akhir per mapel (permintaan sekolah):
+// SB >= 90, B 70-89, C 50-69, KB 10-49. Nilai < 10 ikut KB.
+type Predicate = { code: 'SB' | 'B' | 'C' | 'KB'; label: string; note: (subject: string) => string; pill: string };
+const PREDICATES: Predicate[] = [
+  { code: 'SB', label: 'Sangat Baik', note: (s) => `Sangat baik dalam menguasai materi ${s}. Pertahankan prestasinya.`, pill: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  { code: 'B', label: 'Baik', note: (s) => `Baik dalam menguasai materi ${s}. Terus tingkatkan.`, pill: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+  { code: 'C', label: 'Cukup Baik', note: (s) => `Cukup baik dalam materi ${s}. Perlu lebih banyak latihan.`, pill: 'bg-amber-50 text-amber-700 border-amber-200' },
+  { code: 'KB', label: 'Kurang Baik', note: (s) => `Kurang baik dalam materi ${s}. Perlu bimbingan dan pendampingan belajar.`, pill: 'bg-rose-50 text-rose-700 border-rose-200' },
+];
+export const getPredicate = (score: number): Predicate =>
+  score >= 90 ? PREDICATES[0] : score >= 70 ? PREDICATES[1] : score >= 50 ? PREDICATES[2] : PREDICATES[3];
+const PREDICATE_RANGES: Record<Predicate['code'], string> = { SB: '90 ke atas', B: '70–89', C: '50–69', KB: '10–49' };
+
+const hasAnyGrade = (g: ParentSubjectGrade) => g.nh.some((n) => n.value !== null) || g.pas?.value != null;
+
 const scoreTone = (score: number) =>
   score >= 85 ? 'text-emerald-700' : score >= 70 ? 'text-slate-800' : 'text-rose-600';
 
@@ -240,9 +255,66 @@ export default function ParentPortal({ view, data, loading }: Props) {
 
   if (view === 'progress') {
     const months = progress.attendanceByMonth.slice(-12);
+    // Catatan per mapel, dikelompokkan per periode (terbaru dulu, urutan dari backend).
+    const notePeriods: Array<{ key: string; label: string; items: ParentSubjectGrade[] }> = [];
+    for (const g of grades.filter(hasAnyGrade)) {
+      const key = `${g.academicYearId}|${g.semester}`;
+      let period = notePeriods.find((p) => p.key === key);
+      if (!period) {
+        period = { key, label: `${g.academicYearName} • Semester ${semesterLabel(g.semester)}`, items: [] };
+        notePeriods.push(period);
+      }
+      period.items.push(g);
+    }
     return (
       <div className="space-y-6">
         {header}
+        <Card title="Catatan Perkembangan per Mata Pelajaran" icon={BookOpen} right={<ReadOnlyBadge />}>
+          {notePeriods.length === 0 ? <Empty text="Belum ada nilai yang diinput guru." /> : (
+            <div className="space-y-6">
+              {notePeriods.map((period) => (
+                <div key={period.key}>
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">{period.label}</div>
+                  <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                    <table className="w-full text-sm">
+                      <thead className="text-xs uppercase tracking-wider text-slate-400 bg-slate-50 border-b border-slate-200">
+                        <tr>
+                          <th className="text-left p-3">Mata Pelajaran</th>
+                          <th className="text-right p-3">Nilai Akhir</th>
+                          <th className="text-center p-3">Predikat</th>
+                          <th className="text-left p-3">Catatan</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-600">
+                        {period.items.map((g) => {
+                          const p = getPredicate(g.finalScore);
+                          return (
+                            <tr key={g.subjectId}>
+                              <td className="p-3 font-semibold text-slate-800">{g.subjectName}</td>
+                              <td className="p-3 text-right font-bold text-slate-800">{g.finalScore}</td>
+                              <td className="p-3 text-center">
+                                <span className={`inline-block text-xs font-bold px-2 py-0.5 rounded border ${p.pill}`} title={p.label}>
+                                  {p.code} <span className="font-semibold">({p.label})</span>
+                                </span>
+                              </td>
+                              <td className="p-3 text-slate-600 min-w-[240px]">{p.note(g.subjectName)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+              <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+                <span className="font-semibold">Keterangan:</span>
+                {PREDICATES.map((p) => (
+                  <span key={p.code} className={`px-2 py-0.5 rounded border ${p.pill}`}>{p.code} = {p.label} ({PREDICATE_RANGES[p.code]})</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
         <Card title="Perkembangan Kehadiran per Bulan" icon={TrendingUp} right={<ReadOnlyBadge />}>
           {months.length === 0 ? <Empty text="Belum ada data absensi." /> : (
             <>
