@@ -12,8 +12,9 @@ const STATUS_META: Record<AttendanceStatus, { label: string; pill: string }> = {
   sakit: { label: 'Sakit', pill: 'bg-amber-50 text-amber-700 border-amber-100' },
   izin: { label: 'Izin', pill: 'bg-blue-50 text-blue-700 border-blue-100' },
   alfa: { label: 'Alpa', pill: 'bg-rose-50 text-rose-700 border-rose-100' },
+  libur: { label: 'Libur', pill: 'bg-slate-100 text-slate-700 border-slate-200' },
 };
-const STATUS_ORDER: AttendanceStatus[] = ['hadir', 'sakit', 'izin', 'alfa'];
+const STATUS_ORDER: AttendanceStatus[] = ['hadir', 'sakit', 'izin', 'alfa', 'libur'];
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 const formatMonth = (ym: string) => {
@@ -160,11 +161,11 @@ export default function ParentPortal({ view, data, loading }: Props) {
   );
 
   const statusTiles = (
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
       <div className="bg-white rounded-lg border border-slate-200 p-4 col-span-2 lg:col-span-1">
         <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">Kehadiran</div>
         <div className="text-3xl font-extrabold font-display text-slate-900 mt-1">{s.attendanceRate}%</div>
-        <div className="text-xs text-slate-500">{s.hadir} dari {s.total} catatan</div>
+        <div className="text-xs text-slate-500">{s.hadir} dari {s.total - s.libur} hari sekolah</div>
       </div>
       {STATUS_ORDER.map((st) => (
         <div key={st} className="bg-white rounded-lg border border-slate-200 p-4">

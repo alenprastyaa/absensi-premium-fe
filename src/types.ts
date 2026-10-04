@@ -7,7 +7,8 @@ export type SubscriptionPlan = 'bulanan' | 'tahunan' | 'selamanya';
 export type SubscriptionStatus = 'aktif' | 'nonaktif';
 // 'parent' = Orang Tua/Siswa: login memakai kredensial siswa, hanya bisa melihat.
 export type UserRole = 'super_admin' | 'admin' | 'teacher' | 'parent';
-export type AttendanceStatus = 'hadir' | 'sakit' | 'izin' | 'alfa';
+// 'libur' diisi manual oleh guru (tidak ada lagi libur otomatis Sabtu/Minggu).
+export type AttendanceStatus = 'hadir' | 'sakit' | 'izin' | 'alfa' | 'libur';
 export type AttendanceMethod = 'qr' | 'manual';
 
 export interface School {

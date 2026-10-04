@@ -86,86 +86,11 @@ import SchoolAddressPicker from './components/SchoolAddressPicker';
 import ParentPortal, { ParentView } from './components/ParentPortal';
 import { apiFetch } from './lib/api';
 
-const NATIONAL_CALENDAR_DAYS: Record<string, { name: string; type: 'holiday' | 'joint_leave' }> = {
-  '2024-01-01': { name: 'Tahun Baru Masehi', type: 'holiday' },
-  '2024-02-08': { name: 'Isra Mikraj Nabi Muhammad SAW', type: 'holiday' },
-  '2024-02-09': { name: 'Cuti Bersama Tahun Baru Imlek', type: 'joint_leave' },
-  '2024-02-10': { name: 'Tahun Baru Imlek', type: 'holiday' },
-  '2024-03-11': { name: 'Hari Suci Nyepi', type: 'holiday' },
-  '2024-03-12': { name: 'Cuti Bersama Hari Suci Nyepi', type: 'joint_leave' },
-  '2024-03-29': { name: 'Wafat Isa Almasih', type: 'holiday' },
-  '2024-03-31': { name: 'Hari Paskah', type: 'holiday' },
-  '2024-04-08': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
-  '2024-04-09': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
-  '2024-04-10': { name: 'Idul Fitri', type: 'holiday' },
-  '2024-04-11': { name: 'Idul Fitri', type: 'holiday' },
-  '2024-04-12': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
-  '2024-04-15': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
-  '2024-05-01': { name: 'Hari Buruh Internasional', type: 'holiday' },
-  '2024-05-09': { name: 'Kenaikan Isa Almasih', type: 'holiday' },
-  '2024-05-10': { name: 'Cuti Bersama Kenaikan Isa Almasih', type: 'joint_leave' },
-  '2024-05-23': { name: 'Hari Raya Waisak', type: 'holiday' },
-  '2024-05-24': { name: 'Cuti Bersama Hari Raya Waisak', type: 'joint_leave' },
-  '2024-06-01': { name: 'Hari Lahir Pancasila', type: 'holiday' },
-  '2024-06-17': { name: 'Idul Adha', type: 'holiday' },
-  '2024-06-18': { name: 'Cuti Bersama Idul Adha', type: 'joint_leave' },
-  '2024-07-07': { name: 'Tahun Baru Islam', type: 'holiday' },
-  '2024-08-17': { name: 'Hari Kemerdekaan Republik Indonesia', type: 'holiday' },
-  '2024-09-16': { name: 'Maulid Nabi Muhammad SAW', type: 'holiday' },
-  '2024-12-25': { name: 'Hari Raya Natal', type: 'holiday' },
-  '2024-12-26': { name: 'Cuti Bersama Hari Raya Natal', type: 'joint_leave' },
-  '2025-01-01': { name: 'Tahun Baru Masehi', type: 'holiday' },
-  '2025-01-27': { name: 'Isra Mikraj Nabi Muhammad SAW', type: 'holiday' },
-  '2025-01-28': { name: 'Cuti Bersama Tahun Baru Imlek', type: 'joint_leave' },
-  '2025-01-29': { name: 'Tahun Baru Imlek', type: 'holiday' },
-  '2025-03-28': { name: 'Cuti Bersama Hari Suci Nyepi', type: 'joint_leave' },
-  '2025-03-29': { name: 'Hari Suci Nyepi', type: 'holiday' },
-  '2025-03-31': { name: 'Idul Fitri', type: 'holiday' },
-  '2025-04-01': { name: 'Idul Fitri', type: 'holiday' },
-  '2025-04-02': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
-  '2025-04-03': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
-  '2025-04-04': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
-  '2025-04-07': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
-  '2025-04-18': { name: 'Wafat Isa Almasih', type: 'holiday' },
-  '2025-04-20': { name: 'Hari Paskah', type: 'holiday' },
-  '2025-05-01': { name: 'Hari Buruh Internasional', type: 'holiday' },
-  '2025-05-12': { name: 'Hari Raya Waisak', type: 'holiday' },
-  '2025-05-13': { name: 'Cuti Bersama Hari Raya Waisak', type: 'joint_leave' },
-  '2025-05-29': { name: 'Kenaikan Isa Almasih', type: 'holiday' },
-  '2025-05-30': { name: 'Cuti Bersama Kenaikan Isa Almasih', type: 'joint_leave' },
-  '2025-06-01': { name: 'Hari Lahir Pancasila', type: 'holiday' },
-  '2025-06-06': { name: 'Idul Adha', type: 'holiday' },
-  '2025-06-09': { name: 'Cuti Bersama Idul Adha', type: 'joint_leave' },
-  '2025-06-27': { name: 'Tahun Baru Islam', type: 'holiday' },
-  '2025-08-17': { name: 'Hari Kemerdekaan Republik Indonesia', type: 'holiday' },
-  '2025-09-05': { name: 'Maulid Nabi Muhammad SAW', type: 'holiday' },
-  '2025-12-25': { name: 'Hari Raya Natal', type: 'holiday' },
-  '2025-12-26': { name: 'Cuti Bersama Hari Raya Natal', type: 'joint_leave' },
-  '2026-01-01': { name: 'Tahun Baru Masehi', type: 'holiday' },
-  '2026-01-16': { name: 'Isra Mikraj Nabi Muhammad SAW', type: 'holiday' },
-  '2026-02-16': { name: 'Cuti Bersama Tahun Baru Imlek', type: 'joint_leave' },
-  '2026-02-17': { name: 'Tahun Baru Imlek', type: 'holiday' },
-  '2026-03-18': { name: 'Cuti Bersama Hari Suci Nyepi', type: 'joint_leave' },
-  '2026-03-19': { name: 'Hari Suci Nyepi', type: 'holiday' },
-  '2026-03-20': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
-  '2026-03-21': { name: 'Idul Fitri', type: 'holiday' },
-  '2026-03-22': { name: 'Idul Fitri', type: 'holiday' },
-  '2026-03-23': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
-  '2026-03-24': { name: 'Cuti Bersama Idul Fitri', type: 'joint_leave' },
-  '2026-04-03': { name: 'Wafat Isa Almasih', type: 'holiday' },
-  '2026-04-05': { name: 'Hari Paskah', type: 'holiday' },
-  '2026-05-01': { name: 'Hari Buruh Internasional', type: 'holiday' },
-  '2026-05-14': { name: 'Kenaikan Isa Almasih', type: 'holiday' },
-  '2026-05-15': { name: 'Cuti Bersama Kenaikan Isa Almasih', type: 'joint_leave' },
-  '2026-05-27': { name: 'Idul Adha', type: 'holiday' },
-  '2026-05-28': { name: 'Cuti Bersama Idul Adha', type: 'joint_leave' },
-  '2026-05-31': { name: 'Hari Raya Waisak', type: 'holiday' },
-  '2026-06-01': { name: 'Hari Lahir Pancasila', type: 'holiday' },
-  '2026-06-16': { name: 'Tahun Baru Islam', type: 'holiday' },
-  '2026-08-17': { name: 'Hari Kemerdekaan Republik Indonesia', type: 'holiday' },
-  '2026-08-25': { name: 'Maulid Nabi Muhammad SAW', type: 'holiday' },
-  '2026-12-24': { name: 'Cuti Bersama Hari Raya Natal', type: 'joint_leave' },
-  '2026-12-25': { name: 'Hari Raya Natal', type: 'holiday' },
+// Tanggal hari ini di zona waktu perangkat (YYYY-MM-DD). toISOString() memakai UTC,
+// sehingga sebelum 07.00 WIB tanggalnya masih kemarin.
+const localToday = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 };
 
 export default function App() {
@@ -341,6 +266,13 @@ export default function App() {
   const [scanManualStudentId, setScanManualStudentId] = useState<string>('');
   const [scanManualStudentSearch, setScanManualStudentSearch] = useState<string>('');
   const [scanManualStatus, setScanManualStatus] = useState<AttendanceStatus>('sakit');
+  // Tanggal absensi di halaman scanner (default hari ini). Bisa mundur untuk mengisi
+  // absensi yang terlupa; tidak bisa ke masa depan.
+  const [scanDate, setScanDate] = useState<string>(localToday());
+  const scanDateRef = useRef<string>(scanDate);
+  scanDateRef.current = scanDate;
+  // Untuk status Libur: tandai satu kelas sekaligus.
+  const [scanLiburClassId, setScanLiburClassId] = useState<string>('');
 
   // --- CHANGE PASSWORD STATES ---
   const [oldPassword, setOldPassword] = useState<string>('');
@@ -384,6 +316,15 @@ export default function App() {
       loadContextData();
     }
   }, [user, activeTab]);
+
+  // Muat ulang daftar absensi saat guru mengganti tanggal di halaman scanner.
+  useEffect(() => {
+    if (user?.role !== 'teacher' || activeTab !== 'scan') return;
+    (async () => {
+      const res = await fetch(`/api/teacher/history?date=${encodeURIComponent(scanDate)}`, { headers: getHeaders() });
+      if (res.ok) setHistoryToday(await res.json());
+    })().catch(() => undefined);
+  }, [scanDate]);
 
   useEffect(() => {
     setReportLogoUrl(localStorage.getItem(getReportLogoStorageKey()) || '');
@@ -674,7 +615,7 @@ export default function App() {
 
       // 4. Guru specific history
       if (user.role === 'teacher') {
-        const historyRes = await fetch('/api/teacher/history', { headers: getHeaders() });
+        const historyRes = await fetch(`/api/teacher/history?date=${encodeURIComponent(scanDateRef.current)}`, { headers: getHeaders() });
         if (historyRes.ok) {
           const historyData = await historyRes.json();
           setHistoryToday(historyData);
@@ -1712,14 +1653,13 @@ export default function App() {
     }
     setActionLoading(true);
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
       const res = await fetch('/api/admin/attendances', {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({
           studentId: scanManualStudentId,
           status: scanManualStatus,
-          date: todayStr
+          date: scanDate
         })
       });
 
@@ -1736,6 +1676,36 @@ export default function App() {
       } else {
         const err = await res.json();
         showToast(err.error || 'Gagal menyimpan absensi.', 'error');
+      }
+    } catch (e) {
+      showToast('Koneksi terputus.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleScanBulkLibur = async () => {
+    if (!scanLiburClassId) {
+      showToast('Pilih kelas yang libur terlebih dahulu.', 'error');
+      return;
+    }
+    const cls = classes.find((item) => item.id === scanLiburClassId);
+    if (!window.confirm(`Tandai seluruh siswa ${cls?.name || ''} LIBUR pada ${scanDate}? Siswa yang sudah punya catatan di tanggal itu tidak diubah.`)) {
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/admin/attendances/bulk', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ classId: scanLiburClassId, status: 'libur', date: scanDate })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(data.message || 'Libur berhasil dicatat.');
+        loadContextData();
+      } else {
+        showToast(data.error || 'Gagal mencatat libur.', 'error');
       }
     } catch (e) {
       showToast('Koneksi terputus.', 'error');
@@ -1773,7 +1743,7 @@ export default function App() {
     const res = await fetch('/api/teacher/scan', {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ qrCode, status })
+      body: JSON.stringify({ qrCode, status, date: scanDateRef.current })
     });
 
     const data = await res.json();
@@ -1800,16 +1770,16 @@ export default function App() {
 
   // Get current attendance statistics
   const getAttendanceStats = () => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    const today = new Date(`${todayStr}T00:00:00`);
-    const isTodayNonAttendanceDay = today.getDay() === 0 || today.getDay() === 6 || !!getNationalCalendarDay(todayStr);
+    const todayStr = localToday();
     const todayLogs = attendances.filter(a => a.date === todayStr);
     const totalSiswa = students.length;
 
     const hadir = todayLogs.filter(l => l.status === 'hadir').length;
     const sakit = todayLogs.filter(l => l.status === 'sakit').length;
     const izin = todayLogs.filter(l => l.status === 'izin').length;
-    const alfa = isTodayNonAttendanceDay ? 0 : totalSiswa - hadir - sakit - izin; // Non-attendance days are not counted as Alfa.
+    // Siswa yang ditandai Libur oleh guru tidak dihitung Alfa.
+    const libur = todayLogs.filter(l => l.status === 'libur').length;
+    const alfa = totalSiswa - hadir - sakit - izin - libur;
 
     const presentPercentage = totalSiswa > 0 ? Math.round((hadir / totalSiswa) * 100) : 0;
 
@@ -1941,14 +1911,12 @@ export default function App() {
     return parsedDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
-  const getNationalCalendarDay = (date: string) => NATIONAL_CALENDAR_DAYS[date] || null;
-
+  // Tidak ada lagi libur otomatis (Sabtu/Minggu/libur nasional): tidak semua sekolah
+  // libur di hari yang sama. Libur dicatat manual oleh guru lewat status 'libur'.
   const getAttendanceDay = (year: number, monthIndex: number, day: number) => {
     const date = `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`;
     const parsedDate = new Date(year, monthIndex, day);
     const weekday = parsedDate.getDay();
-    const nationalDay = getNationalCalendarDay(date);
-    const isWeekend = weekday === 0 || weekday === 6;
 
     return {
       day,
@@ -1956,11 +1924,6 @@ export default function App() {
       weekday,
       weekdayLabel: ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'][weekday],
       monthShort: parsedDate.toLocaleDateString('id-ID', { month: 'short' }),
-      isWeekend,
-      nationalDay,
-      isNationalHoliday: !!nationalDay,
-      isNonAttendanceDay: isWeekend || !!nationalDay,
-      nonAttendanceReason: nationalDay?.name || (isWeekend ? 'Akhir pekan' : ''),
     };
   };
 
@@ -2029,11 +1992,12 @@ export default function App() {
 
     return studentsInScope.map((student, index) => {
       const dayStatuses = days.map((day) => getMonthlyAttendanceStatus(student.id, day.date));
-      const attendanceDayStatuses = dayStatuses.filter((_, dayIndex) => !days[dayIndex].isNonAttendanceDay);
-      const hadir = attendanceDayStatuses.filter((status) => status === 'hadir').length;
-      const sakit = attendanceDayStatuses.filter((status) => status === 'sakit').length;
-      const izin = attendanceDayStatuses.filter((status) => status === 'izin').length;
-      const alfa = attendanceDayStatuses.filter((status) => status === 'alfa').length;
+      // Status 'libur' tidak masuk hitungan H/S/I/A.
+      const hadir = dayStatuses.filter((status) => status === 'hadir').length;
+      const sakit = dayStatuses.filter((status) => status === 'sakit').length;
+      const izin = dayStatuses.filter((status) => status === 'izin').length;
+      const alfa = dayStatuses.filter((status) => status === 'alfa').length;
+      const libur = dayStatuses.filter((status) => status === 'libur').length;
 
       return {
         index: index + 1,
@@ -2043,6 +2007,7 @@ export default function App() {
         sakit,
         izin,
         alfa,
+        libur,
         total: hadir,
       };
     });
@@ -2076,14 +2041,13 @@ export default function App() {
       month: 'long',
       day: 'numeric',
     });
-    const effectiveDays = days.filter((day) => !day.isNonAttendanceDay).length;
-    const nonAttendanceDays = days.length - effectiveDays;
     const filePeriod = periodLabel.replace(/\s+/g, '_').replace(/[^\w-]/g, '').toLowerCase();
     const statusCode = (status: AttendanceStatus | null) => {
       if (status === 'hadir') return 'H';
       if (status === 'sakit') return 'S';
       if (status === 'izin') return 'I';
       if (status === 'alfa') return 'A';
+      if (status === 'libur') return 'L';
       return '-';
     };
     const totals = rows.reduce(
@@ -2196,7 +2160,7 @@ export default function App() {
         ['I', 'Izin', [37, 99, 235]],
         ...(includeLibur
           ? [
-              ['L', 'Libur / Cuti Bersama', [185, 28, 28]],
+              ['L', 'Libur', [185, 28, 28]],
               ['-', 'Tidak Ada Data', [100, 116, 139]],
             ] as const
           : []),
@@ -2272,7 +2236,7 @@ export default function App() {
         body: rows.map((row) => [
           String(row.index),
           row.student.name,
-          ...days.map((day, dayIndex) => day.isNonAttendanceDay ? 'L' : statusCode(row.dayStatuses[dayIndex])),
+          ...days.map((_, dayIndex) => statusCode(row.dayStatuses[dayIndex])),
           String(row.hadir),
         ]),
         theme: 'grid',
@@ -2298,14 +2262,6 @@ export default function App() {
           [days.length + 2]: { cellWidth: 13, halign: 'center', fontStyle: 'bold' },
         },
         didParseCell: (data) => {
-          if (data.section === 'head' && data.row.index === 1) {
-            const day = days[data.column.index];
-            if (day?.isNonAttendanceDay) {
-              data.cell.styles.textColor = [185, 28, 28];
-              data.cell.styles.fillColor = [254, 242, 242];
-            }
-          }
-
           if (data.section !== 'body' || data.column.index < 2 || data.column.index > days.length + 1) return;
           const value = String(data.cell.raw || '');
           data.cell.styles.halign = 'center';
@@ -2432,8 +2388,10 @@ export default function App() {
     const days = getAttendancePeriodDays();
     const rows = getMonthlyAttendanceRows();
     const periodLabel = getAttendancePeriodLabel();
-    const effectiveDays = days.filter((day) => !day.isNonAttendanceDay).length;
-    const nonAttendanceDays = days.length - effectiveDays;
+    // Hari libur = tanggal yang ditandai Libur oleh guru untuk siswa di kelas ini.
+    const liburDates = new Set(days.filter((_, dayIndex) => rows.some((row) => row.dayStatuses[dayIndex] === 'libur')).map((day) => day.date));
+    const nonAttendanceDays = liburDates.size;
+    const effectiveDays = days.length - nonAttendanceDays;
     const className = adminAttendanceClassId === 'all'
       ? 'Semua Kelas'
       : classes.find((item) => item.id === adminAttendanceClassId)?.name || 'Semua Kelas';
@@ -2625,7 +2583,7 @@ export default function App() {
               { code: 'alfa', label: 'Alpa', color: 'bg-rose-100 text-rose-700 border-rose-200' },
               { code: 'sakit', label: 'Sakit', color: 'bg-amber-100 text-amber-700 border-amber-200' },
               { code: 'izin', label: 'Izin', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-              { code: 'libur', label: 'Libur / Cuti Bersama', color: 'bg-slate-100 text-slate-600 border-slate-200' },
+              { code: 'libur', label: 'Libur', color: 'bg-rose-50 text-rose-600 border-rose-200' },
             ].map((item) => (
               <div key={item.code} className="flex items-center gap-2">
                 <span className={`inline-flex items-center justify-center w-8 h-8 rounded-md border font-extrabold ${item.color}`}>
@@ -2679,8 +2637,8 @@ export default function App() {
                   {days.map((day) => (
                     <th
                       key={day.date}
-                      className={`p-3 w-12 text-center text-sm font-semibold ${day.isNonAttendanceDay ? 'text-rose-600 bg-rose-50' : 'text-slate-700'}`}
-                      title={day.nonAttendanceReason || undefined}
+                      className={`p-3 w-12 text-center text-sm font-semibold ${liburDates.has(day.date) ? 'text-rose-600 bg-rose-50' : 'text-slate-700'}`}
+                      title={liburDates.has(day.date) ? 'Ditandai libur oleh guru' : undefined}
                     >
                       <div className="flex flex-col items-center leading-tight">
                         <span className="font-bold">{day.day}</span>
@@ -2710,7 +2668,7 @@ export default function App() {
                       </td>
                       {row.dayStatuses.map((status, dayIndex) => {
                         const day = days[dayIndex];
-                        const cellClass = day.isNonAttendanceDay
+                        const cellClass = status === 'libur'
                           ? 'text-rose-600 bg-rose-50 border-rose-200'
                           : status === 'hadir'
                             ? 'text-emerald-600'
@@ -2723,9 +2681,9 @@ export default function App() {
                                   : 'text-slate-300';
 
                         return (
-                          <td key={`${row.student.id}-${day.date}`} className="p-3 text-center text-sm" title={day.nonAttendanceReason || undefined}>
+                          <td key={`${row.student.id}-${day.date}`} className="p-3 text-center text-sm">
                             <span className={`inline-flex h-8 w-8 items-center justify-center rounded-md border font-bold ${cellClass}`}>
-                              {day.isNonAttendanceDay ? 'L' : status ? status.charAt(0).toUpperCase() : '-'}
+                              {status === 'libur' ? 'L' : status ? status.charAt(0).toUpperCase() : '-'}
                             </span>
                           </td>
                         );
@@ -2744,8 +2702,8 @@ export default function App() {
         <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 text-sm text-blue-900 no-print">
           <div className="font-bold mb-1">Keterangan:</div>
           <p className="text-blue-800">
-            Data absensi ditampilkan per tanggal berdasarkan kelas yang dipilih. Sabtu/Minggu, libur nasional, dan cuti bersama
-            ditandai L serta tidak dihitung sebagai kewajiban absen.
+            Data absensi ditampilkan per tanggal berdasarkan kelas yang dipilih. Hari libur tidak lagi ditandai otomatis —
+            guru menandai Libur (L) dari menu Scan QR Absensi. Libur tidak dihitung sebagai kewajiban absen.
           </p>
         </div>
       </div>
@@ -4331,7 +4289,8 @@ export default function App() {
                         hadir: 'bg-emerald-50 text-emerald-700 border-emerald-100',
                         sakit: 'bg-amber-50 text-amber-700 border-amber-100',
                         izin: 'bg-blue-50 text-blue-700 border-blue-100',
-                        alfa: 'bg-rose-50 text-rose-700 border-rose-100'
+                        alfa: 'bg-rose-50 text-rose-700 border-rose-100',
+                        libur: 'bg-slate-100 text-slate-700 border-slate-200'
                       };
 
                       return (
@@ -4536,10 +4495,52 @@ export default function App() {
 
   // 5. Guru QR Scan screen
   const renderTeacherScanView = () => {
+    const todayStr = localToday();
+    const isBackdated = scanDate !== todayStr;
+    const scanDateLabel = new Date(`${scanDate}T00:00:00`).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     return (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left pane: Main scan card */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Pilih tanggal absensi: berlaku untuk scan QR, simulasi, dan pencatatan manual */}
+          <div className={`rounded-2xl border p-5 shadow-sm ${isBackdated ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-100'}`}>
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+              <div>
+                <label htmlFor="scan-date" className="text-sm font-bold font-display text-slate-800 flex items-center gap-2">
+                  <CalendarDays className="w-5 h-5 text-indigo-600" />
+                  Tanggal Absensi
+                </label>
+                <p className="text-xs text-slate-500 mt-0.5">Pilih tanggal dulu sebelum scan. Lupa absen kemarin? Mundurkan tanggalnya.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="scan-date"
+                  type="date"
+                  value={scanDate}
+                  max={todayStr}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value && value <= todayStr) setScanDate(value);
+                  }}
+                  className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-base font-semibold text-slate-800 focus:outline-indigo-500"
+                />
+                {isBackdated && (
+                  <button
+                    type="button"
+                    onClick={() => setScanDate(todayStr)}
+                    className="px-3 py-2.5 text-xs font-bold text-indigo-700 bg-white border border-indigo-200 rounded-xl hover:bg-indigo-50"
+                  >
+                    Hari ini
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className={`mt-3 text-xs font-semibold ${isBackdated ? 'text-amber-800' : 'text-slate-500'}`}>
+              {isBackdated ? '⚠ Mencatat absensi untuk tanggal lampau: ' : 'Mencatat absensi untuk: '}
+              <span className="font-bold">{scanDateLabel}</span>
+            </div>
+          </div>
+
           <QRScanner
             students={students}
             onScanSuccess={handleQRScanSuccess}
@@ -4550,10 +4551,11 @@ export default function App() {
             <div className="border-b border-slate-100 pb-3 mb-4">
               <h3 className="text-sm font-bold font-display text-slate-800 flex items-center gap-2">
                 <Users className="w-5 h-5 text-indigo-600 animate-pulse" />
-                Pencatatan Manual Siswa Tidak Masuk (Sakit / Izin / Alfa)
+                Pencatatan Manual Siswa Tidak Masuk (Sakit / Izin / Alfa / Libur)
               </h3>
               <p className="text-slate-500 text-xs mt-0.5">
-                Jika ada siswa yang tidak masuk (sakit, izin, atau tanpa keterangan/alfa), silakan pilih nama mereka di bawah ini lalu simpan tanpa perlu scan.
+                Jika ada siswa yang tidak masuk (sakit, izin, tanpa keterangan/alfa, atau libur), pilih nama mereka di bawah ini lalu simpan tanpa perlu scan.
+                Pilih <b>Libur</b> untuk menandai satu kelas sekaligus.
               </p>
             </div>
 
@@ -4602,12 +4604,13 @@ export default function App() {
                   <label className="block text-slate-400 font-bold uppercase mb-1.5 tracking-wide text-[10px]">
                     Status Ketidakhadiran
                   </label>
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    {(['sakit', 'izin', 'alfa'] as const).map((status) => {
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                    {(['sakit', 'izin', 'alfa', 'libur'] as const).map((status) => {
                       const colors = {
                         sakit: 'peer-checked:bg-amber-500 peer-checked:text-white border-amber-100 hover:bg-amber-50 text-amber-800',
                         izin: 'peer-checked:bg-blue-500 peer-checked:text-white border-blue-100 hover:bg-blue-50 text-blue-800',
-                        alfa: 'peer-checked:bg-rose-500 peer-checked:text-white border-rose-100 hover:bg-rose-50 text-rose-800'
+                        alfa: 'peer-checked:bg-rose-500 peer-checked:text-white border-rose-100 hover:bg-rose-50 text-rose-800',
+                        libur: 'peer-checked:bg-slate-700 peer-checked:text-white border-slate-200 hover:bg-slate-50 text-slate-700'
                       };
                       return (
                         <label key={status} className="cursor-pointer relative">
@@ -4640,6 +4643,37 @@ export default function App() {
                 </button>
               </div>
             </form>
+
+            {scanManualStatus === 'libur' && (
+              <div className="mt-4 p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3 text-xs">
+                <div className="font-bold text-slate-700">Tandai Libur untuk Satu Kelas</div>
+                <p className="text-slate-500">
+                  Semua siswa di kelas terpilih dicatat <b>Libur</b> pada {scanDateLabel}. Siswa yang sudah punya catatan di tanggal itu tidak diubah.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <select
+                    value={scanLiburClassId}
+                    onChange={(e) => setScanLiburClassId(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-indigo-500"
+                    id="scan-libur-class-select"
+                  >
+                    <option value="">-- Pilih Kelas --</option>
+                    {classes.map((cls) => (
+                      <option key={cls.id} value={cls.id}>{cls.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleScanBulkLibur}
+                    disabled={actionLoading || !scanLiburClassId}
+                    className="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-xl text-xs transition"
+                    id="scan-libur-class-btn"
+                  >
+                    Tandai Kelas Libur
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -4647,8 +4681,8 @@ export default function App() {
         <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm h-fit">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
             <div>
-              <h3 className="font-bold text-slate-800 font-display">Scan Hari Ini</h3>
-              <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mt-0.5">Sistem Live Sinkronisasi</p>
+              <h3 className="font-bold text-slate-800 font-display">{isBackdated ? 'Absensi Tanggal Ini' : 'Scan Hari Ini'}</h3>
+              <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mt-0.5">{scanDateLabel}</p>
             </div>
             <span className="bg-indigo-50 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded">
               {historyToday.length} Absen
@@ -4658,7 +4692,7 @@ export default function App() {
           <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
             {historyToday.length === 0 ? (
               <div className="text-center py-8 text-slate-400 text-xs">
-                Belum ada absensi yang diproses hari ini.
+                {isBackdated ? 'Belum ada absensi pada tanggal ini.' : 'Belum ada absensi yang diproses hari ini.'}
               </div>
             ) : (
               historyToday.map((log) => {
@@ -4666,7 +4700,8 @@ export default function App() {
                   hadir: 'bg-emerald-500',
                   sakit: 'bg-amber-500',
                   izin: 'bg-blue-500',
-                  alfa: 'bg-rose-500'
+                  alfa: 'bg-rose-500',
+                  libur: 'bg-slate-500'
                 };
                 return (
                   <div key={log.id} className="p-3 bg-slate-50 border border-slate-200/60 rounded-xl flex items-center justify-between gap-3 text-xs">
@@ -6642,13 +6677,14 @@ export default function App() {
 
               <div>
                 <label className="block text-slate-500 font-bold mb-1 uppercase">Status Kehadiran</label>
-                <div className="grid grid-cols-4 gap-2 text-center">
-                  {(['hadir', 'sakit', 'izin', 'alfa'] as const).map((status) => {
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 text-center">
+                  {(['hadir', 'sakit', 'izin', 'alfa', 'libur'] as const).map((status) => {
                     const colors = {
                       hadir: 'peer-checked:bg-emerald-500 peer-checked:text-white border-emerald-100 hover:bg-emerald-50 text-emerald-800',
                       sakit: 'peer-checked:bg-amber-500 peer-checked:text-white border-amber-100 hover:bg-amber-50 text-amber-800',
                       izin: 'peer-checked:bg-blue-500 peer-checked:text-white border-blue-100 hover:bg-blue-50 text-blue-800',
-                      alfa: 'peer-checked:bg-rose-500 peer-checked:text-white border-rose-100 hover:bg-rose-50 text-rose-800'
+                      alfa: 'peer-checked:bg-rose-500 peer-checked:text-white border-rose-100 hover:bg-rose-50 text-rose-800',
+                      libur: 'peer-checked:bg-slate-700 peer-checked:text-white border-slate-200 hover:bg-slate-50 text-slate-700'
                     };
                     return (
                       <label key={status} className="cursor-pointer relative">
