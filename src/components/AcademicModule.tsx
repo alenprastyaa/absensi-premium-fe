@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Award, 
@@ -63,6 +63,10 @@ export default function AcademicModule({ user, classes, teachers, token }: Acade
   const [subjectCode, setSubjectCode] = useState('');
   const [subjectName, setSubjectName] = useState('');
   const [subjectTeacherName, setSubjectTeacherName] = useState('');
+  // Daftar guru untuk dropdown Guru Pengampu, diambil langsung dari server.
+  // Dulu memakai prop `teachers` yang hanya terisi saat login sebagai admin,
+  // sehingga dropdown sering kosong untuk akun guru.
+  const [teacherList, setTeacherList] = useState<Array<Pick<UserType, 'id' | 'name' | 'username'>>>([]);
   const [subjectClassId, setSubjectClassId] = useState('');
   const [subjectIsActive, setSubjectIsActive] = useState(true);
 
@@ -141,6 +145,10 @@ export default function AcademicModule({ user, classes, teachers, token }: Acade
         }
       }
 
+      // Fetch daftar guru (aman untuk role guru: tanpa password)
+      const teacherRes = await fetch('/api/academic/teachers', { headers: getHeaders() });
+      if (teacherRes.ok) setTeacherList(await teacherRes.json());
+
       // Fetch standard students
       const studRes = await fetch('/api/admin/students', { headers: getHeaders() });
       if (studRes.ok) setStudents(await studRes.json());
@@ -167,11 +175,25 @@ export default function AcademicModule({ user, classes, teachers, token }: Acade
     }
   }, [subjects, weightSubjectId]);
 
-  useEffect(() => {
-    if (isSubjectModalOpen && !editingSubject && !subjectTeacherName && teachers.length > 0) {
-      setSubjectTeacherName(teachers[0].name);
+  const teacherOptions = useMemo(() => {
+    const options: Array<Pick<UserType, 'id' | 'name' | 'username'>> = teacherList.length > 0 ? [...teacherList] : [...teachers];
+    if (user.role === 'teacher' && !options.some((t) => t.name === user.name)) {
+      options.unshift({ id: user.id, name: user.name, username: user.username });
     }
-  }, [isSubjectModalOpen, editingSubject, subjectTeacherName, teachers]);
+    // Saat edit, nama guru lama tetap bisa dipilih walau akunnya sudah dihapus.
+    if (editingSubject?.teacherName && !options.some((t) => t.name === editingSubject.teacherName)) {
+      options.push({ id: `legacy-${editingSubject.id}`, name: editingSubject.teacherName, username: null });
+    }
+    return options;
+  }, [teacherList, teachers, user, editingSubject]);
+
+  useEffect(() => {
+    if (isSubjectModalOpen && !editingSubject && !subjectTeacherName && teacherOptions.length > 0) {
+      // Default ke guru yang sedang login bila ada di daftar.
+      const self = teacherOptions.find((t) => t.name === user.name);
+      setSubjectTeacherName((self || teacherOptions[0]).name);
+    }
+  }, [isSubjectModalOpen, editingSubject, subjectTeacherName, teacherOptions]);
 
   useEffect(() => {
     if (!weightSubjectId) return;
@@ -350,7 +372,7 @@ export default function AcademicModule({ user, classes, teachers, token }: Acade
     } else {
       setSubjectCode('');
       setSubjectName('');
-      setSubjectTeacherName(teachers[0]?.name || '');
+      setSubjectTeacherName((teacherOptions.find((t) => t.name === user.name) || teacherOptions[0])?.name || '');
       setSubjectClassId(classes[0]?.id || '');
       setSubjectIsActive(true);
     }
@@ -1784,10 +1806,10 @@ export default function AcademicModule({ user, classes, teachers, token }: Acade
                   value={subjectTeacherName}
                   onChange={(e) => setSubjectTeacherName(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500"
-                  disabled={teachers.length === 0}
+                  disabled={teacherOptions.length === 0}
                 >
-                  <option value="">{teachers.length === 0 ? 'Data guru belum tersedia' : 'Pilih guru pengampu'}</option>
-                  {teachers.map((teacher) => (
+                  <option value="">{teacherOptions.length === 0 ? 'Data guru belum tersedia' : 'Pilih guru pengampu'}</option>
+                  {teacherOptions.map((teacher) => (
                     <option key={teacher.id} value={teacher.name}>
                       {teacher.name} {teacher.username ? `(${teacher.username})` : ''}
                     </option>
